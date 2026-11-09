@@ -132,6 +132,29 @@ dialog .close { float: right; border: 0; background: none; font-size: 22px; colo
 .mini .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .mini .row .pos { text-align: right; }
 @media (max-width: 560px) { .swap { grid-template-columns: 1fr; } .arrow { transform: rotate(90deg); justify-self: center; } .gain { text-align: left; } }
+
+.with .num-badge { color: #0b0f2a; font: 700 18px/1 var(--display); }
+.with .chip { font-size: 12.5px; }
+/* layout safety: nothing may push the page wider than the screen */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { overflow-x: hidden; }
+.swap { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.side, .cardhead > *, .vhead > *, .card, .variant, .mini, section { min-width: 0; }
+.pl { flex-wrap: wrap; row-gap: 2px; }
+.pl b { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.pl .stat { white-space: normal; }
+.vsend { grid-template-columns: repeat(auto-fill, minmax(min(215px, 100%), 1fr)); }
+.chip, .with, .news, td.wrap, .mini .row span { overflow-wrap: anywhere; }
+.chip { white-space: normal; }
+.gain { white-space: nowrap; }
+@media (max-width: 560px) {
+  .wrap { padding-left: 10px; padding-right: 10px; gap: 16px; }
+  section { padding: 12px; border-radius: 10px; }
+  .card { padding: 12px; }
+  .gain { font-size: 22px; }
+  .score b { font-size: 34px; }
+  .topbar .in { padding: 8px 10px; }
+}
 </style>
 
 <div id="lock" hidden><form id="lockf">
@@ -391,7 +414,7 @@ dialog .close { float: right; border: 0; background: none; font-size: 22px; colo
         <div class="cardhead"><div class="with"><span class="chip ${out ? "" : "warn"}" style="margin-right:8px">${out ? "You sent" : "Sent to you"}</span>${esc(o.team)} <span>${o.manager && o.manager !== o.team ? "· " + esc(o.manager) : ""} · ${ago(o.when)}</span></div>${head}</div>
         <div class="swap"><div class="side"><h3>You send</h3>${o.give.map(line).join("")}</div><div class="arrow" aria-hidden="true">→</div><div class="side"><h3>You get</h3>${o.get.map(line).join("")}</div></div>
         ${chips ? `<div class="chips">${chips}</div>` : ""}
-        <div class="acts" style="margin-top:10px">${out ? `<button class="act no" data-act="withdraw" data-tx="${o.id}">Withdraw</button>` : `<button class="act go" data-act="accept" data-tx="${o.id}">Accept</button><button class="act no" data-act="decline" data-tx="${o.id}">Decline</button>`}</div>
+        <div class="acts" style="margin-top:10px">${out ? `${o.advice === "rescind" && b ? `<button class="act go" data-act="swap" data-tx="${o.id}" data-give="${b.give.join(",")}" data-get="${b.get.join(",")}" data-label="${esc(labelOf[b.n - 1] || b.n)}">Withdraw &amp; send #${esc(labelOf[b.n - 1] || b.n)}</button>` : ""}<button class="act no" data-act="withdraw" data-tx="${o.id}">Withdraw</button>` : `<button class="act go" data-act="accept" data-tx="${o.id}">Accept</button>${(() => { const ci = d.trades.findIndex((t) => t.team === o.team && t.kind !== "upgrade"); if (ci < 0) return '<button class="act no" data-act="decline" data-tx="' + o.id + '">Decline</button><span class="msg">No better idea with this team right now to counter with.</span>'; const t = d.trades[ci]; return `<button class="act" data-act="counter" data-tx="${o.id}" data-give="${t.give.join(",")}" data-get="${t.get.join(",")}" data-label="${esc(labelOf[ci])}">Decline &amp; counter with #${esc(labelOf[ci])} (+${Math.round(t.myGain)})</button><button class="act no" data-act="decline" data-tx="${o.id}">Decline</button>`; })()}`}</div>
         ${adv ? `<p class="chip ${advCls}" style="display:block;border-radius:10px;margin:10px 0 0;font-size:13.5px;line-height:1.45;padding:8px 12px">${adv}</p>` : ""}</article>`;
     }).join("");
     document.getElementById("upgrades").innerHTML = !upG.length ? '<p class="empty">No two-for-one upgrades tonight.</p>' : upG.map(([g, n]) => card(g, n)).join("");
@@ -519,6 +542,8 @@ dialog .close { float: right; border: 0; background: none; font-size: 22px; colo
     const k = b.dataset.act;
     if (k === "send" && !confirm(`Send trade #${b.dataset.label}? It expires in 24 hours.`)) return;
     if (k === "accept" && !confirm("Accept this trade?")) return;
+    if (k === "counter" && !confirm(`Send #${b.dataset.label} as a counter and decline their offer? Their offer is only declined if your counter goes out.`)) return;
+    if (k === "swap" && !confirm(`Send #${b.dataset.label} and withdraw this offer? The old offer is only withdrawn if the new one goes out.`)) return;
     request(k, { give: (b.dataset.give || "").split(",").filter(Boolean), get: (b.dataset.get || "").split(",").filter(Boolean), tx: b.dataset.tx || "" }, b);
   }, true);
   load();
