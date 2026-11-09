@@ -278,7 +278,7 @@ html, body { overflow-x: hidden; }
     <div><b>30+ / 40+ week</b> is the chance a player has at least one game that big in a week.</div>
     <div><b>Trade gain</b> is how many more points you'd lock over the rest of the season. Playoff weeks count 2.5 times, so a hurt star who's back for the playoffs can come out ahead even if you lose a few weeks now.</div>
     <div><b>Repeat offers:</b> an offer a manager declined in the last 7 days, or one still waiting on an answer, is left off the board. Ideas for the same player get a note instead.</div>
-    <div><b>Accept odds</b> show how the trade looks from the other manager's side, judged by season average and name value, since that's how most managers judge trades. Among trades with similar gains, likelier ones rank higher. <b>Bench cover</b> is the change in how well your bench fills in when a starter misses a week. Multi-position players help here, and an open roster spot is assumed to be filled by a typical free agent.</div>
+    <div><b>Accept odds</b> show how the trade looks from the other manager's side, judged by season average and name value, since that's how most managers judge trades. Ideas are ranked by <b>expected gain</b>: the gain times the chance they accept. That chance starts from how the deal looks to them and is corrected by how your past offers actually went (including ones you sent yourself), and it drops for managers who declined you recently or have been inactive. Getting back more players than you send costs 25 pts per extra player. <b>Bench cover</b> is the change in how well your bench fills in when a starter misses a week. Multi-position players help here, and an open roster spot is assumed to be filled by a typical free agent.</div>
     <div id="modelNote"></div>
     <div><b>Fairness:</b> an idea shows only if the other team's lineup stays about even by the same measure, without the playoff boost. Return dates are read from the latest news and are estimates.</div>
   </div>
@@ -343,7 +343,8 @@ html, body { overflow-x: hidden; }
       const hurt = withHurt ? t.get.filter((p) => P[p] && P[p].backWeek) : [];
       const c = [
         t.kind === "upgrade" ? `<span class="chip ${t.myGain >= 0 ? "good" : ""}">Season: ${sgn(t.myGain, 0)} locked pts</span>` : "",
-        t.odds ? `<span class="chip ${t.odds === "likely" ? "good" : t.odds === "long shot" ? "warn" : ""}">Accept odds: ${esc(t.odds)}</span>` : "",
+        t.odds ? `<span class="chip ${t.odds === "likely" ? "good" : t.odds === "long shot" ? "warn" : ""}">Accept odds: ${esc(t.odds)}${t.pAcc != null ? ` (~${t.pAcc}%)` : ""}</span>` : "",
+        t.ev != null ? `<span class="chip">Expected: +${Math.round(t.ev)} (gain × chance)</span>` : "",
         t.cover != null && Math.abs(t.cover) >= 1 ? `<span class="chip ${t.cover > 0 ? "good" : ""}">Bench cover: ${sgn(t.cover, 0)} pts</span>` : "",
         `<span class="chip ${t.nowDelta > 0.5 ? "good" : t.nowDelta < -0.5 ? "warn" : ""}">This week: ${sgn(t.nowDelta)} locked pts</span>`,
         `<span class="chip ${t.poDelta > 0.5 ? "good" : t.poDelta < -0.5 ? "bad" : ""}">Playoffs: ${sgn(t.poDelta)} pts per week</span>`,
@@ -396,12 +397,13 @@ html, body { overflow-x: hidden; }
         ? `<div class="gain" style="color:var(--muted)">–<small>players have moved since</small></div>`
         : `<div class="gain" style="color:${o.myGain >= 0 ? "var(--good)" : "var(--bad)"}">${o.myGain >= 0 ? "+" : "−"}${Math.abs(Math.round(o.myGain))}<small>locked pts over the season</small></div>`;
       const chips = o.myGain == null ? "" : [
+        o.pAcc != null && o.dir === "out" ? `<span class="chip ${o.pAcc >= 50 ? "good" : o.pAcc < 20 ? "warn" : ""}">~${o.pAcc}% to be accepted · expected +${Math.round(o.ev || 0)}</span>` : "",
         `<span class="chip ${o.nowDelta > 0.5 ? "good" : o.nowDelta < -0.5 ? "warn" : ""}">This week: ${sgn(o.nowDelta)} locked pts</span>`,
         `<span class="chip ${o.poDelta > 0.5 ? "good" : o.poDelta < -0.5 ? "bad" : ""}">Playoffs: ${sgn(o.poDelta)} pts per week</span>`,
       ].join("");
       const b = o.better, nm = (ids) => ids.map((p) => esc((P[p] || {}).name || p)).join(" + ");
       const adv = {
-        rescind: b && `<b>Rescind this and send #${labelOf[b.n - 1] || b.n} instead</b> (${b.sameTeam ? "same team" : esc(b.team)}: ${nm(b.give)} for ${nm(b.get)}, ${sgn(b.myGain - o.myGain)} more locked pts over the season).`,
+        rescind: b && `<b>Rescind this and send #${labelOf[b.n - 1] || b.n} instead</b> (${b.sameTeam ? "same team" : esc(b.team)}: ${nm(b.give)} for ${nm(b.get)}, ${b.pAcc != null ? `~${b.pAcc}% to be accepted vs ~${o.pAcc}% for this one, expected +${Math.round(b.ev)} vs +${Math.round(o.ev || 0)}` : `${sgn(b.myGain - o.myGain)} more locked pts over the season`}).`,
         keep: "Keep it. No idea on the board beats it by enough to switch.",
         stale: `Over a day old with no answer. Withdraw it if you'd rather send a different idea.`,
         moved: "Players in this offer have moved. Withdraw it.",
