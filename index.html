@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Scuttle Board</title>
+</head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column. Where you stand -> trades ranked by gain -> injured stars to stash -> pickups */
+:root {
+  --bg: #0b0f2a; --panel: #141a3d; --ink: #f4f6ff; --muted: #9ba6d6; --line: #262e5c; --line2: #283066;
+  --accent: #53f7ec; --accent-soft: rgba(83,247,236,.12); --good: #3ee08f; --good-soft: rgba(62,224,143,.14); --warn: #ffdd00; --warn-soft: rgba(255,221,0,.12); --bad: #ff5c7c; --bad-soft: rgba(255,92,124,.14);
+  --display: "Geist", system-ui, sans-serif; --body: "Geist", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html { background: #0b0f2a; } body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); }
+a { color: var(--accent); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }
+h1, h2 { font-family: var(--display); font-weight: 700; letter-spacing: .01em; text-wrap: balance; margin: 0; line-height: 1.05; }
+h1 { font-size: clamp(24px, 5vw, 30px); font-weight: 600; letter-spacing: -.01em; }
+h2 { font: 700 14px var(--body); letter-spacing: .02em; }
+.eyebrow { font: 600 12px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.lede, .sub { color: var(--muted); max-width: 64ch; margin: 0; }
+header { display: grid; gap: 10px; }
+.meta { font: 13px var(--mono); color: var(--muted); }
+.score { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; margin-top: 6px; }
+.score b { font: 700 40px/1 var(--display); color: var(--ink); }
+.score span { color: var(--muted); font-size: 14px; }
+section { display: grid; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+section > h2 { text-transform: uppercase; color: var(--ink); }
+section .tablebox, section .card, section .wk, section .mini, section .log { background: rgba(11,15,42,.55); }
+.pl { background: rgba(11,15,42,.6) !important; }
+.topbar { position: sticky; top: 0; z-index: 5; background: rgba(11,15,42,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.topbar .in { max-width: 980px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.topbar b { font-weight: 600; }
+.topbar nav { display: flex; gap: 4px; overflow-x: auto; width: 100%; }
+.topbar nav a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 8px; font-size: 13.5px; white-space: nowrap; }
+.topbar nav a:hover { color: var(--ink); background: var(--line); }
+.livepill { font: 500 12px var(--mono); color: var(--good); border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px; }
+.act { font: 600 12.5px var(--body); border-radius: 8px; padding: 6px 12px; border: 1px solid var(--line); background: var(--line); color: var(--ink); cursor: pointer; }
+.act.go { background: var(--good); color: var(--bg); border-color: transparent; }
+.act.no { background: transparent; color: var(--bad); border-color: var(--bad); }
+.act[disabled] { opacity: .6; cursor: default; }
+.acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.acts .msg { font-size: 12.5px; color: var(--muted); }
+#lock { position: fixed; inset: 0; z-index: 20; background: var(--bg); display: grid; place-items: center; padding: 16px; }
+#lock form { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 10px; }
+#lock[hidden] { display: none; }
+#lock input { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 15px var(--body); }
+#lock small { color: var(--muted); }
+.tablebox { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+th { font: 600 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; }
+td.num { font-family: var(--mono); }
+td.wrap { white-space: normal; min-width: 220px; }
+.pname { font-weight: 600; }
+.pos { color: var(--muted); font-size: 13px; }
+.role { font: 500 11px var(--mono); padding: 2px 7px; border-radius: 99px; background: var(--line); color: var(--muted); }
+.role.start { background: var(--accent-soft); color: var(--accent); }
+.pill { display: inline-block; min-width: 44px; text-align: right; padding: 2px 8px; border-radius: 6px; font: 500 13px var(--mono); }
+.hi { background: var(--good-soft); color: var(--good); }
+.mid { background: var(--warn-soft); color: var(--warn); }
+.lo { background: var(--bad-soft); color: var(--bad); }
+.inj { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; font: 600 11px var(--mono); background: var(--bad-soft); color: var(--bad); }
+.spark { display: inline-flex; gap: 3px; align-items: flex-end; height: 22px; vertical-align: middle; }
+.spark i { display: block; width: 6px; border-radius: 2px 2px 0 0; background: var(--muted); opacity: .5; }
+.spark i.big { background: var(--accent); opacity: 1; }
+.cards { display: grid; gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: grid; gap: 12px; }
+.card.top { border-color: var(--accent); }
+.cardhead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: baseline; }
+.with { font: 600 16px var(--body); }
+.with span { color: var(--muted); font-weight: 400; font-size: 14px; }
+.num-badge { display: inline-grid; place-items: center; min-width: 30px; height: 30px; margin-right: 10px; padding: 0 6px; border-radius: 8px; background: var(--accent); color: #0b0f2a; font: 700 18px/1 var(--display); vertical-align: middle; }
+.gain { font: 700 26px var(--display); color: var(--good); text-align: right; }
+.gain small { display: block; font: 400 12px var(--body); color: var(--muted); }
+.swap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: start; }
+.side { display: grid; gap: 6px; min-width: 0; }
+.side h3 { margin: 0; font: 600 11px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.pl { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: var(--bg); }
+.pl b { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl .stat { font: 12px var(--mono); color: var(--muted); white-space: nowrap; }
+.arrow { align-self: center; font: 700 22px var(--display); color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; padding: 3px 9px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+.chip.good { background: var(--good-soft); color: var(--good); border-color: transparent; }
+.chip.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.chip.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.news { font-size: 13px; color: var(--muted); }
+.note { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; color: var(--muted); font-size: 14px; display: grid; gap: 8px; }
+.note b { color: var(--ink); }
+.empty { color: var(--muted); margin: 0; }
+[data-pid] { cursor: pointer; text-decoration: underline dotted color-mix(in srgb, var(--muted) 60%, transparent); text-underline-offset: 3px; }
+.wk { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; display: grid; gap: 10px; }
+.wk .vs { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: baseline; }
+.wk .vs b { font: 700 30px/1 var(--display); }
+.wk ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.wk li.lock { color: var(--good); } .wk li.swap { color: var(--accent); }
+.log { display: grid; gap: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; max-height: 460px; overflow: auto; }
+.log div { display: grid; grid-template-columns: 92px 70px 1fr; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.log div:last-child { border-bottom: 0; }
+.log time { font: 12px var(--mono); color: var(--muted); }
+.log .k { font: 600 11px var(--mono); text-transform: uppercase; color: var(--accent); }
+@media (max-width: 560px) { .log div { grid-template-columns: 1fr; gap: 2px; } }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 18px 20px; width: min(460px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgb(0 0 0 / .35); }
+dialog h3 { margin: 0 0 4px; font: 700 24px var(--display); }
+dialog table { min-width: 0; }
+dialog .close { float: right; border: 0; background: none; font-size: 22px; color: var(--muted); cursor: pointer; }
+.variant { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 8px; }
+.vhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.vlabel { display: inline-grid; place-items: center; min-width: 30px; height: 24px; margin-right: 8px; padding: 0 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font: 700 15px/1 var(--display); vertical-align: middle; }
+.vgain { font: 700 20px var(--display); color: var(--good); }
+.vgain small { font: 400 12px var(--body); color: var(--muted); margin-left: 4px; }
+.vsend { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 6px; }
+.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; font: 600 11px var(--mono); vertical-align: 1px; }
+.tag.hot { background: var(--good-soft); color: var(--good); }
+.tag.cold { background: var(--line); color: var(--muted); }
+.tag.boost { background: var(--warn-soft); color: var(--warn); }
+.banner { background: var(--accent-soft); color: var(--ink); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .duo { grid-template-columns: 1fr; } }
+.mini { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.mini h3 { margin: 0; font: 600 12px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.mini .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.mini .row .pos { text-align: right; }
+@media (max-width: 560px) { .swap { grid-template-columns: 1fr; } .arrow { transform: rotate(90deg); justify-self: center; } .gain { text-align: left; } }
+</style>
+
+<div id="lock" hidden><form id="lockf">
+  <b style="font-size:18px">Scuttle Board</b>
+  <small>Enter your board passphrase. Add your GitHub token only on devices where you want the Send / Withdraw buttons to work. Both stay on this device.</small>
+  <input id="lk-repo" placeholder="GitHub repo (you/repo)" autocomplete="off">
+  <input id="lk-pass" type="password" placeholder="Passphrase" autocomplete="current-password">
+  <input id="lk-token" type="password" placeholder="GitHub token (optional)" autocomplete="off">
+  <button class="act go" type="submit">Unlock</button>
+  <small id="lk-err" style="color:var(--bad)"></small>
+</form></div>
+<div class="topbar"><div class="in">
+  <b id="tbLeague">Scuttle Board</b><span class="livepill" id="syncPill">–</span>
+  <span style="flex:1"></span>
+  <button class="act" data-act="refresh">Refresh now</button>
+  <button class="act" id="lockBtn" title="Forget passphrase and token on this device">Lock</button>
+  <nav><a href="#s-week">Matchup</a><a href="#s-offers">Offers</a><a href="#s-trades">Trades</a><a href="#s-roster">Roster</a><a href="#s-alerts">Alerts</a><a href="#s-odds">Standings</a><a href="#s-pickups">Pickups</a><a href="#s-log">Log</a></nav>
+</div></div>
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="league">Brookers · Lock-In</div>
+    <h1>Scuttle Trade Board</h1>
+    <p class="lede">Built around one goal: the most fantasy points locked every week from your starting six, with a 30+ (ideally 40+) game from each starter. Updated by the Sleeper tab whenever something changes: games ending, offers answered, trades going through.</p>
+    <div class="score"><b id="nowScore">–</b><span id="nowLabel">locked points per week expected from your starting six</span></div>
+    <div class="meta" id="meta">Loading the latest run…</div>
+    <div class="banner" id="deadline" hidden></div>
+    <div class="banner" id="auto" hidden></div>
+    <div class="banner" id="dead" hidden style="background:var(--bad-soft);color:var(--bad)"></div>
+  </header>
+
+  <section id="s-week">
+    <h2>This week</h2>
+    <div class="wk" id="week"><p class="empty">Shows after the lineup bot's next check.</p></div>
+  </section>
+
+  <section id="s-roster">
+    <h2>Your roster</h2>
+    <div class="tablebox"><table>
+      <thead><tr><th>Player</th><th>Slot</th><th class="num" title="Expected locked score per week">Lock value</th><th class="num">30+ week</th><th class="num">40+ week</th><th class="num">Avg</th><th class="num">Best</th><th>Last 6 games</th></tr></thead>
+      <tbody id="roster"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section id="s-alerts">
+    <h2>Alerts</h2>
+    <p class="sub">Big nights from free agents and anything the Sleeper tab did on its own, plus your requests from this page.</p>
+    <div class="log" id="alerts"><p class="empty" style="padding:12px 14px">Nothing yet.</p></div>
+  </section>
+
+  <section id="s-offers">
+    <h2>Open offers</h2>
+    <p class="sub">Trades waiting on an answer, both ones you sent and ones sent to you, with what each would do for your team. If a trade idea below beats an offer you sent by 15+ locked points, it says which number to send instead.</p>
+    <div class="cards" id="offers"><p class="empty">Loading…</p></div>
+  </section>
+
+  <section id="s-trades">
+    <h2>Trade ideas</h2>
+    <p class="sub">Every player you get would start for you. Ideas that send more players than you get free up bench spots for pickups.</p>
+    <div class="cards" id="trades"><p class="empty">Loading…</p></div>
+  </section>
+
+  <section>
+    <h2>Two-for-one upgrades</h2>
+    <p class="sub">Send two or three players, get back one who out-rates all of them. Your lineup stays about the same now, and you end up with a stronger trade piece plus open bench spots.</p>
+    <div class="cards" id="upgrades"><p class="empty">Loading…</p></div>
+  </section>
+
+  <section>
+    <h2>Sell high, buy low</h2>
+    <p class="sub">Last 4 games compared with each player's usual level. A hot streak inflates a player's name value for a while, and a slump does the opposite, so these are the best moments to trade.</p>
+    <div class="duo"><div class="mini" id="sellHigh"><h3>Sell high · yours</h3></div><div class="mini" id="buyLow"><h3>Buy low · theirs</h3></div></div>
+  </section>
+
+  <section>
+    <h2 id="streamHead">Streaming next week</h2>
+    <p class="sub">Free agents whose games next week would raise your starting six's expected locked points, with the player you'd drop. Nothing changes until you say so.</p>
+    <div class="tablebox"><table>
+      <thead><tr><th>Add</th><th class="num">Games</th><th class="num">Lock value that week</th><th class="num">Week gain</th><th>Drop</th></tr></thead>
+      <tbody id="stream"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section id="s-odds">
+    <h2>Playoff odds</h2>
+    <p class="sub" id="oddsSub">Thousands of simulated seasons, from each team's expected weekly score and the real schedule.</p>
+    <div class="tablebox"><table>
+      <thead><tr><th>Team</th><th class="num">Wins</th><th class="num">Expected / week</th><th class="num">Avg seed</th><th class="num">Playoffs</th><th class="num">Top-2 seed</th></tr></thead>
+      <tbody id="odds"><tr><td colspan="6" class="empty">Shows after the next refresh.</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Injured stars to stash</h2>
+    <p class="sub">Out now, back before the playoffs. Their managers may sell low.</p>
+    <div class="tablebox"><table>
+      <thead><tr><th>Player</th><th>Manager</th><th>Expected back</th><th class="num">30+ week when healthy</th><th>Latest news</th></tr></thead>
+      <tbody id="stash"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section id="s-pickups">
+    <h2>Pickups with upside</h2>
+    <p class="sub">Free agents with a real shot at a big game: rising minutes, injured teammates, recent big nights.</p>
+    <div class="tablebox"><table>
+      <thead><tr><th>Player</th><th class="num">Best, last 5</th><th class="num">Minutes</th><th class="num">30+ week</th><th>Why</th></tr></thead>
+      <tbody id="pickups"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section id="s-log">
+    <h2>Decision log</h2>
+    <p class="sub">Everything the lineup bot and the autopilot did (or, during the trial week, would have done), newest first, with the reason.</p>
+    <div class="log" id="log"><p class="empty" style="padding:12px 14px">Nothing yet.</p></div>
+  </section>
+
+  <div class="note">
+    <div><b>Lock value</b> is the score you can expect to lock from a player in a typical week, if you lock his first game that beats what he's likely to do later. Big games (40+) raise it a lot. His last 10 games count 1.5 times as much as older ones. Last season counts only lightly and stops counting after about 15 games this season. A single big game counts only partway until he repeats it.</div>
+    <div><b>Teammates out:</b> while a key teammate (26+ minutes) is out, the games a player played without him count fully. Once the teammate is back, those games drop to a small weight, so the boost goes away with him. <span class="tag boost">boost</span> marks players currently getting this.</div>
+    <div><b>Schedule:</b> each week uses his team's real game count, so 4-game weeks (especially in the playoffs) count for more.</div>
+    <div><b>Availability:</b> how often a player actually plays (this season against his team's games, plus his last four seasons out of 82, recent ones weighted more; his worst season counts only 30% when there are three or more, so one injury year doesn't make a player fragile). Players who miss a lot count for less, half as fewer games in a week and half as whole missed weeks. <span class="tag cold">fragile</span> marks anyone under 75%.</div>
+    <div><b>30+ / 40+ week</b> is the chance a player has at least one game that big in a week.</div>
+    <div><b>Trade gain</b> is how many more points you'd lock over the rest of the season. Playoff weeks count 2.5 times, so a hurt star who's back for the playoffs can come out ahead even if you lose a few weeks now.</div>
+    <div><b>Repeat offers:</b> an offer a manager declined in the last 7 days, or one still waiting on an answer, is left off the board. Ideas for the same player get a note instead.</div>
+    <div><b>Accept odds</b> show how the trade looks from the other manager's side, judged by season average and name value, since that's how most managers judge trades. Among trades with similar gains, likelier ones rank higher. <b>Bench cover</b> is the change in how well your bench fills in when a starter misses a week. Multi-position players help here, and an open roster spot is assumed to be filled by a typical free agent.</div>
+    <div id="modelNote"></div>
+    <div><b>Fairness:</b> an idea shows only if the other team's lineup stays about even by the same measure, without the playoff boost. Return dates are read from the latest news and are estimates.</div>
+  </div>
+</div>
+
+<dialog id="pd"><button class="close" aria-label="Close" onclick="this.closest('dialog').close()">×</button><div id="pdBody"></div></dialog>
+
+<script>
+(function () {
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const band = (v) => (v >= 70 ? "hi" : v >= 40 ? "mid" : "lo");
+  const sgn = (v, d = 1) => (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(d);
+  function spark(recent) {
+    if (!recent || !recent.length) return '<span class="pos">no games</span>';
+    const top = Math.max(45, ...recent);
+    return '<span class="spark" aria-label="Last games: ' + recent.join(", ") + '">' + recent.map((v) => `<i class="${v >= 30 ? "big" : ""}" style="height:${Math.max(3, Math.round((v / top) * 22))}px" title="${v}"></i>`).join("") + "</span>";
+  }
+  const ago = (t) => { if (!t) return ""; const d = Math.round((Date.now() - t) / 864e5); return d <= 0 ? "today" : d === 1 ? "1 day ago" : `${d} days ago`; };
+  const newsLine = (n) => !n ? '<span class="pos">–</span>' : `${n.url ? `<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>` : esc(n.title)} <span class="pos">· ${ago(n.published)}</span>`;
+
+  function render(d) {
+    const P = d.players, N = (p) => (P[p] ? P[p].name : p);
+    const when = new Date(d.generated);
+    document.getElementById("tbLeague").textContent = d.leagueName || "Scuttle Board";
+    const sy = d.sync || {}, mins = sy.at ? Math.round((Date.now() - sy.at) / 6e4) : null;
+    document.getElementById("syncPill").textContent = mins == null ? "–" : mins < 1 ? "synced just now" : mins < 90 ? `synced ${mins}m ago` : `synced ${Math.round(mins / 60)}h ago`;
+    document.getElementById("syncPill").title = sy.reason || "";
+    const al = [...(sy.alerts || []).map((a) => ({ t: a.t, kind: "free agent", text: a.text })), ...(sy.requests || []).map((r) => ({ t: r.t, kind: "request", text: `${r.kind}: ${r.ok ? "done" : "not done"}${r.note ? " (" + r.note + ")" : ""}` }))].sort((a, b) => b.t - a.t);
+    document.getElementById("alerts").innerHTML = !al.length ? '<p class="empty" style="padding:12px 14px">Nothing yet.</p>' : al.map((x) => `<div><time>${new Date(x.t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time><span class="k">${esc(x.kind)}</span><span>${esc(x.text)}</span></div>`).join("");
+    document.getElementById("league").textContent = `${d.leagueName} · Lock-In`;
+    document.getElementById("meta").textContent = `Updated ${when.toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · Week ${d.week} · Playoffs start week ${d.playoffStart}`;
+    document.getElementById("nowScore").textContent = Math.round(d.my.now);
+    const dl = d.deadline, ban = document.getElementById("deadline");
+    if (dl) {
+      const days = dl.ends ? Math.max(0, Math.ceil((Date.parse(dl.ends) - Date.now()) / 864e5)) : null;
+      ban.hidden = false;
+      ban.textContent = dl.passed ? "The trade deadline has passed. Trade ideas are off; streaming and pickups are below."
+        : `Trade deadline: end of week ${dl.week}${days != null ? ` (about ${days} days left)` : ""}.${dl.boost ? " Final stretch: injured stars due back for the playoffs get an extra edge." : ""}`;
+    }
+    const tag = (x) => !x ? "" : [
+      x.trend ? `<span class="tag ${x.trend.dir}" title="last 4: ${x.trend.recent} vs usual ${x.trend.base}">${x.trend.dir === "hot" ? "hot" : "cold"}</span>` : "",
+      x.avail != null && x.avail < 75 ? `<span class="tag cold" title="plays about ${x.avail}% of his team's games">fragile</span>` : "",
+      x.boostBy ? `<span class="tag boost" title="${esc(x.boostBy.join(", "))} out${x.boostEnd ? ` until about week ${x.boostEnd}` : ""}">boost</span>` : "",
+    ].join("");
+
+    const slotOf = {}; d.my.lineup.forEach((p, i) => { if (p) slotOf[p] = d.slots[i]; });
+    const rows = d.roster.filter((p) => P[p]).sort((a, b) => P[b].V - P[a].V);
+    document.getElementById("roster").innerHTML = rows.map((p) => {
+      const x = P[p];
+      return `<tr><td><span class="pname" data-pid="${p}">${esc(x.name)}</span>${x.injury ? `<span class="inj">${esc(x.injury)}</span>` : ""}${tag(x)}<div class="pos">${esc(x.pos.join(" / "))} · ${esc(x.team)}${x.boostBy ? ` · ${esc(x.boostBy.join(", "))} out` : ""}</div></td>
+        <td><span class="role ${slotOf[p] ? "start" : ""}">${slotOf[p] || "Bench"}</span></td>
+        <td class="num"><b>${x.V.toFixed(1)}</b></td>
+        <td class="num"><span class="pill ${band(x.p30)}">${x.p30}%</span></td>
+        <td class="num">${x.p40 ?? 0}%</td>
+        <td class="num">${x.avg ?? "–"}</td><td class="num">${x.max ?? "–"}</td>
+        <td>${spark(x.recent)}</td></tr>`;
+    }).join("");
+
+    const line = (p) => { const x = P[p] || { name: p, pos: [], p30: 0, V: 0 }; return `<div class="pl"><b data-pid="${p}">${esc(x.name)}${x.injury ? `<span class="inj">${esc(x.injury)}</span>` : ""}${tag(P[p])}</b><span class="stat">${esc(x.pos.join("/"))} · lock ${x.V.toFixed(1)} · 30+ ${x.p30}%</span></div>`; };
+    // one card per package of players you'd get; the different send options are 1a, 1b, ...
+    const tradeChips = (t, withHurt) => {
+      const hurt = withHurt ? t.get.filter((p) => P[p] && P[p].backWeek) : [];
+      const c = [
+        t.kind === "upgrade" ? `<span class="chip ${t.myGain >= 0 ? "good" : ""}">Season: ${sgn(t.myGain, 0)} locked pts</span>` : "",
+        t.odds ? `<span class="chip ${t.odds === "likely" ? "good" : t.odds === "long shot" ? "warn" : ""}">Accept odds: ${esc(t.odds)}</span>` : "",
+        t.cover != null && Math.abs(t.cover) >= 1 ? `<span class="chip ${t.cover > 0 ? "good" : ""}">Bench cover: ${sgn(t.cover, 0)} pts</span>` : "",
+        `<span class="chip ${t.nowDelta > 0.5 ? "good" : t.nowDelta < -0.5 ? "warn" : ""}">This week: ${sgn(t.nowDelta)} locked pts</span>`,
+        `<span class="chip ${t.poDelta > 0.5 ? "good" : t.poDelta < -0.5 ? "bad" : ""}">Playoffs: ${sgn(t.poDelta)} pts per week</span>`,
+        t.openSpots ? `<span class="chip">Frees ${t.openSpots} roster spot${t.openSpots > 1 ? "s" : ""} for pickups</span>` : "",
+        ...hurt.map((p) => `<span class="chip warn">${esc(N(p))} back around week ${P[p].backWeek} (${esc(P[p].backWhy)})</span>`),
+        `<span class="chip">Their side: ${sgn(t.theirGain, 0)} pts over the season</span>`,
+        t.theirDrop.length ? `<span class="chip">They'd have to drop ${t.theirDrop.map((p) => esc(N(p))).join(", ")}</span>` : "",
+        t.declinedAt ? `<span class="chip warn">They declined a similar offer ${ago(t.declinedAt)}</span>` : "",
+        t.pendingSimilar ? `<span class="chip">You already have an offer out to them for this player</span>` : "",
+      ];
+      return c.join("");
+    };
+    const gainHead = (t, big) => t.kind === "upgrade"
+      ? `<div class="${big ? "gain" : "vgain"}">+${t.assetUp.toFixed(1)}<small>lock value over your best player sent</small></div>`
+      : `<div class="${big ? "gain" : "vgain"}">+${Math.round(t.myGain)}<small>locked pts over the season</small></div>`;
+    // group in board order; numbering runs through both sections
+    const groups = [], gi = {}, labelOf = {};
+    d.trades.forEach((t, i) => {
+      const key = `${t.kind === "upgrade" ? "u" : "l"}|${t.team}|${[...t.get].sort().join(",")}`;
+      if (!(key in gi)) { gi[key] = groups.length; groups.push({ kind: t.kind, items: [] }); }
+      groups[gi[key]].items.push([t, i]);
+    });
+    groups.forEach((g, n) => g.items.forEach(([t, i], j) => (labelOf[i] = g.items.length > 1 ? `${n + 1}${"abcdefgh"[j]}` : `${n + 1}`)));
+    const pendKey = new Set((d.offers || []).filter((o) => o.dir === "out").map((o) => [...o.give].sort().join(",") + ">" + [...o.get].sort().join(",")));
+    const sendBtn = (t, label) => pendKey.has([...t.give].sort().join(",") + ">" + [...t.get].sort().join(",")) ? '<span class="msg">Offer already out</span>'
+      : `<button class="act go" data-act="send" data-give="${t.give.join(",")}" data-get="${t.get.join(",")}" data-label="${esc(label)}">Send #${esc(label)}</button>`;
+    const mini = (p) => { const x = P[p] || { name: p, V: 0 }; return `<div class="pl"><b data-pid="${p}">${esc(x.name)}${tag(P[p])}</b><span class="stat">lock ${x.V.toFixed(1)}</span></div>`; };
+    const card = (g, n) => {
+      const [t0] = g.items[0];
+      const head = `<div class="cardhead"><div class="with"><span class="num-badge" aria-label="Trade ${n + 1}">${n + 1}</span>${esc(t0.team)} <span>${t0.manager && t0.manager !== t0.team ? "· " + esc(t0.manager) : ""}${g.items.length > 1 ? ` · ${g.items.length} ways to send it` : ` · ${t0.give.length}-for-${t0.get.length}`}</span></div>`;
+      if (g.items.length === 1) return `<article class="card ${n === 0 ? "top" : ""}">${head}${gainHead(t0, true)}</div>
+        <div class="swap"><div class="side"><h3>You send</h3>${t0.give.map(line).join("")}</div><div class="arrow" aria-hidden="true">→</div><div class="side"><h3>You get</h3>${t0.get.map(line).join("")}</div></div>
+        <div class="chips">${tradeChips(t0, true)}</div><div class="acts">${sendBtn(t0, n + 1 + "")}</div></article>`;
+      const hurt = t0.get.filter((p) => P[p] && P[p].backWeek).map((p) => `<span class="chip warn">${esc(N(p))} back around week ${P[p].backWeek} (${esc(P[p].backWhy)})</span>`).join("");
+      return `<article class="card ${n === 0 ? "top" : ""}">${head}</div>
+        <div class="side"><h3>You get</h3>${t0.get.map(line).join("")}</div>
+        ${hurt ? `<div class="chips">${hurt}</div>` : ""}
+        ${g.items.map(([t, i]) => `<div class="variant">
+          <div class="vhead"><div class="with"><span class="vlabel">${labelOf[i]}</span>You send ${t.give.length}</div>${gainHead(t, false)}</div><div class="acts">${sendBtn(t, labelOf[i])}</div>
+          <div class="vsend">${t.give.map(mini).join("")}</div>
+          <div class="chips">${tradeChips(t, false)}</div></div>`).join("")}
+      </article>`;
+    };
+    const lineupG = groups.map((g, n) => [g, n]).filter(([g]) => g.kind !== "upgrade"), upG = groups.map((g, n) => [g, n]).filter(([g]) => g.kind === "upgrade");
+    document.getElementById("trades").innerHTML = !lineupG.length ? '<p class="empty">No trades tonight that move your lineup up without hurting the other team. Check again tomorrow.</p>' : lineupG.map(([g, n]) => card(g, n)).join("");
+    const offers = d.offers;
+    document.getElementById("offers").innerHTML = !offers ? '<p class="empty">Shows after the next refresh.</p>' : !offers.length ? '<p class="empty">No open offers right now.</p>' : offers.map((o) => {
+      const out = o.dir === "out";
+      const head = o.myGain == null
+        ? `<div class="gain" style="color:var(--muted)">–<small>players have moved since</small></div>`
+        : `<div class="gain" style="color:${o.myGain >= 0 ? "var(--good)" : "var(--bad)"}">${o.myGain >= 0 ? "+" : "−"}${Math.abs(Math.round(o.myGain))}<small>locked pts over the season</small></div>`;
+      const chips = o.myGain == null ? "" : [
+        `<span class="chip ${o.nowDelta > 0.5 ? "good" : o.nowDelta < -0.5 ? "warn" : ""}">This week: ${sgn(o.nowDelta)} locked pts</span>`,
+        `<span class="chip ${o.poDelta > 0.5 ? "good" : o.poDelta < -0.5 ? "bad" : ""}">Playoffs: ${sgn(o.poDelta)} pts per week</span>`,
+      ].join("");
+      const b = o.better, nm = (ids) => ids.map((p) => esc((P[p] || {}).name || p)).join(" + ");
+      const adv = {
+        rescind: b && `<b>Rescind this and send #${labelOf[b.n - 1] || b.n} instead</b> (${b.sameTeam ? "same team" : esc(b.team)}: ${nm(b.give)} for ${nm(b.get)}, ${sgn(b.myGain - o.myGain)} more locked pts over the season).`,
+        keep: "Keep it. No idea on the board beats it by enough to switch.",
+        stale: `Over a day old with no answer. Withdraw it if you'd rather send a different idea.`,
+        moved: "Players in this offer have moved. Withdraw it.",
+        accept: "Worth accepting.",
+        decline: "Decline. It makes your team worse.",
+        close: "Close call: a small gain at most.",
+      }[o.advice];
+      const advCls = { rescind: "warn", stale: "warn", moved: "bad", decline: "bad", accept: "good" }[o.advice] || "";
+      return `<article class="card">
+        <div class="cardhead"><div class="with"><span class="chip ${out ? "" : "warn"}" style="margin-right:8px">${out ? "You sent" : "Sent to you"}</span>${esc(o.team)} <span>${o.manager && o.manager !== o.team ? "· " + esc(o.manager) : ""} · ${ago(o.when)}</span></div>${head}</div>
+        <div class="swap"><div class="side"><h3>You send</h3>${o.give.map(line).join("")}</div><div class="arrow" aria-hidden="true">→</div><div class="side"><h3>You get</h3>${o.get.map(line).join("")}</div></div>
+        ${chips ? `<div class="chips">${chips}</div>` : ""}
+        <div class="acts" style="margin-top:10px">${out ? `<button class="act no" data-act="withdraw" data-tx="${o.id}">Withdraw</button>` : `<button class="act go" data-act="accept" data-tx="${o.id}">Accept</button><button class="act no" data-act="decline" data-tx="${o.id}">Decline</button>`}</div>
+        ${adv ? `<p class="chip ${advCls}" style="display:block;border-radius:10px;margin:10px 0 0;font-size:13.5px;line-height:1.45;padding:8px 12px">${adv}</p>` : ""}</article>`;
+    }).join("");
+    document.getElementById("upgrades").innerHTML = !upG.length ? '<p class="empty">No two-for-one upgrades tonight.</p>' : upG.map(([g, n]) => card(g, n)).join("");
+
+    const shRow = (p, extra) => { const x = P[p]; if (!x) return ""; const t = x.trend || {};
+      return `<div class="row"><span><span class="pname" data-pid="${p}">${esc(x.name)}</span><span class="tag ${t.dir}">${t.recent} vs ${t.base}</span></span><span class="pos">${extra}${t.without && t.without.length ? `<br>while ${esc(t.without.join(", "))} sat` : ""}</span></div>`; };
+    if (d.sellHigh) {
+      document.getElementById("sellHigh").innerHTML = "<h3>Sell high · yours</h3>" + (d.sellHigh.length ? d.sellHigh.map((p) => shRow(p, "")).join("") : '<p class="empty">Nobody on a streak right now.</p>');
+      document.getElementById("buyLow").innerHTML = "<h3>Buy low · theirs</h3>" + (d.buyLow.length ? d.buyLow.map((b) => shRow(b.pid, esc(b.team))).join("") : '<p class="empty">No good players in a slump right now.</p>');
+    }
+    if (d.stream) {
+      if (d.streamWeekStart) document.getElementById("streamHead").textContent = `Streaming next week (week ${d.streamWeek}, from ${new Date(d.streamWeekStart + "T12:00").toLocaleDateString([], { month: "short", day: "numeric" })})`;
+      document.getElementById("stream").innerHTML = !d.stream.length ? '<tr><td colspan="5" class="empty">No free agent beats your current lineup for next week.</td></tr>' : d.stream.map((x) => `<tr>
+        <td><span class="pname">${esc(x.name)}</span><div class="pos">${esc(x.pos.join(" / "))} · ${esc(x.team)} · avg ${x.avg}${x.outMates.length ? ` · ${esc(x.outMates.join(", "))} out` : ""}</div></td>
+        <td class="num">${x.games}</td><td class="num">${x.V.toFixed(1)}</td><td class="num"><span class="pill hi">+${x.gain.toFixed(1)}</span></td>
+        <td>${x.drop ? `${esc(N(x.drop))}<div class="pos">${x.dropCost <= 0 ? "costs you nothing over the season" : `about −${Math.round(x.dropCost)} locked pts over the season`}</div>` : "Open roster spot"}</td></tr>`).join("");
+    } else document.getElementById("stream").innerHTML = '<tr><td colspan="5" class="empty">Shows after the next refresh.</td></tr>';
+
+    // this week (from the lineup bot's last check)
+    const W = d.thisWeek;
+    if (W && W.lines) {
+      document.getElementById("week").innerHTML = `<div class="vs"><span>You <b>${W.me}</b></span>${W.opp != null ? `<span>Opponent <b>${W.opp}</b></span><span class="chip ${W.me >= W.opp ? "good" : "warn"}">${W.me >= W.opp ? "ahead" : "behind"} by ${Math.abs(W.me - W.opp)}</span>` : ""}<span class="pos">week ${W.round} · bot's last check ${new Date(W.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}</span></div>
+        <ul>${W.lines.map((l) => `<li class="${/LOCK/.test(l) ? "lock" : /SWAP/.test(l) ? "swap" : ""}">${esc(l.replace(/\s+/g, " ").trim())}</li>`).join("")}</ul>`;
+    }
+    // are the bots still running in the Sleeper tab?
+    if (d.bots && (!d.bots.lineup || !d.bots.autopilot)) { const x = document.getElementById("dead"); x.hidden = false; x.textContent = `${[!d.bots.lineup && "The lineup bot", !d.bots.autopilot && "the autopilot"].filter(Boolean).join(" and ")} ${!d.bots.lineup && !d.bots.autopilot ? "aren't" : "isn't"} running (the Sleeper tab probably reloaded). Tell Claude "restart the bots".`.replace(/^the/, "The"); }
+    // autopilot status
+    if (d.autopilot) { const a = document.getElementById("auto"); a.hidden = false; const c = d.autopilot.cfg || {}, nextT = (d.autopilot.plan || []).filter((t) => t > Date.now())[0];
+      a.textContent = d.autopilot.mode === "live" ? `Autopilot is live (cautious limits): up to ${c.maxOutPerDay ?? 2} offer a day sending at most ${c.maxGiveAuto ?? 3} players${c.protectTop ? `, never your top ${c.protectTop === 1 ? "player" : c.protectTop + " players"}` : ""}; accepts only +${c.acceptMinGain ?? 25} or better after a delay; ${c.maxMovesPerWeek ?? 2} pickup a week; injured players go to IR. Every trade must also hold up under the plain model.${nextT ? ` Next offer slot: ${new Date(nextT).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.` : ""}` : `Autopilot trial until ${new Date(d.autopilot.trialEnds).toLocaleDateString([], { month: "short", day: "numeric" })}: it logs what it would do (see the decision log) and changes nothing.`; }
+    // playoff odds
+    if (d.odds) {
+      document.getElementById("oddsSub").textContent = `Thousands of simulated seasons from each team's expected weekly score and the real schedule. Top ${d.odds.playoffTeams} make it. Because your odds are ${d.odds.teams.find((t) => t.mine).playoff}%, playoff weeks currently count ${d.playoffWeight}x in trade math.`;
+      document.getElementById("odds").innerHTML = d.odds.teams.map((t) => `<tr${t.mine ? ' style="font-weight:600"' : ""}><td>${esc(t.owner)}${t.mine ? " (you)" : ""}</td><td class="num">${t.wins}</td><td class="num">${t.weekly}</td><td class="num">${t.seed}</td><td class="num"><span class="pill ${band(t.playoff)}">${t.playoff}%</span></td><td class="num">${t.bye}%</td></tr>`).join("");
+    }
+    // decision log
+    if (d.decisions) document.getElementById("log").innerHTML = !d.decisions.length ? '<p class="empty" style="padding:12px 14px">Nothing yet.</p>' : d.decisions.map((x) => `<div><time>${new Date(x.t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time><span class="k">${esc(x.kind)}</span><span>${esc(x.text)}</span></div>`).join("");
+    // model note
+    if (d.model) document.getElementById("modelNote").innerHTML = `<b>Model settings</b> (retuned every Monday from how well past weeks were predicted): recent games ×${d.model.recentWeight}, minutes blend ${d.model.minutesBlend}, opponent adjustment ${d.model.oppStrength}, Sleeper projection share ${d.model.sleeperBlend}, lock threshold ${sgn(d.model.lockOffset, 0)}.${d.model.note ? " Last tuning: " + esc(d.model.note) : " Not tuned yet."}`;
+    // player detail on click
+    window.__P = P;
+    if (!window.__pdBound && (window.__pdBound = 1)) document.body.addEventListener("click", (ev) => {
+      const el = ev.target.closest("[data-pid]"); if (!el) return; const P = window.__P; const x = P[el.dataset.pid]; if (!x) return;
+      document.getElementById("pdBody").innerHTML = `<h3>${esc(x.name)}${x.injury ? `<span class="inj">${esc(x.injury)}</span>` : ""}</h3><div class="pos">${esc((x.pos || []).join(" / "))} · ${esc(x.team)}${x.boostBy ? ` · ${esc(x.boostBy.join(", "))} out` : ""}</div>
+        <div class="chips" style="margin:12px 0">${x.Vk ? x.Vk.map((v, i) => `<span class="chip">${i + 2}-game week: lock ${v}</span>`).join("") : ""}${x.avail != null ? `<span class="chip ${x.avail < 75 ? "warn" : ""}">Plays ${x.avail}% of games</span>` : ""}${x.hit30 != null ? `<span class="chip">30+ in ${x.hit30}% of games</span><span class="chip">40+ in ${x.hit40}%</span>` : ""}</div>
+        ${x.log ? `<table><thead><tr><th>Date</th><th>Opp</th><th class="num">Pts</th></tr></thead><tbody>${[...x.log].reverse().map(([dt, pts, op]) => `<tr><td>${dt}</td><td>${esc(op)}</td><td class="num"><span class="pill ${pts >= 40 ? "hi" : pts >= 30 ? "mid" : ""}">${pts}</span></td></tr>`).join("")}</tbody></table>` : '<p class="empty">Game log shows after the next refresh.</p>'}`;
+      document.getElementById("pd").showModal();
+    });
+
+    document.getElementById("stash").innerHTML = !d.stash.length ? '<tr><td colspan="5" class="empty">No injured stars on other teams right now.</td></tr>' : d.stash.map((s) => {
+      const x = s.player || P[s.pid];
+      return `<tr><td><span class="pname" data-pid="${s.pid}">${esc(x.name)}</span><span class="inj">${esc(x.injury)}</span><div class="pos">${esc(x.pos.join(" / "))} · ${esc(x.team)}</div></td>
+        <td>${esc(s.team)}</td><td>${x.backWeek ? `Week ${x.backWeek}` : "–"}<div class="pos">${esc(x.backWhy)}</div></td>
+        <td class="num"><span class="pill ${band(x.p30)}">${x.p30}%</span></td><td class="wrap news">${newsLine(x.news)}</td></tr>`;
+    }).join("");
+
+    document.getElementById("pickups").innerHTML = !d.pickups.length ? '<tr><td colspan="5" class="empty">No standout free agents tonight.</td></tr>' : d.pickups.map((p) => {
+      const trend = p.minNow - p.minAll;
+      const why = [
+        trend >= 2 ? `<span class="chip good">Minutes up ${trend.toFixed(1)}</span>` : "",
+        p.outMates.length ? `<span class="chip warn">Out: ${p.outMates.map(esc).join(", ")}</span>` : "",
+        p.adds >= 2000 ? `<span class="chip">${p.adds.toLocaleString()} adds in 48h</span>` : "",
+      ].join("");
+      return `<tr><td><span class="pname">${esc(p.name)}</span><div class="pos">${esc(p.pos.join(" / "))} · ${esc(p.team)} · avg ${p.avg}</div></td>
+        <td class="num">${p.best5}</td><td class="num">${p.minAll} → ${p.minNow}</td>
+        <td class="num"><span class="pill ${band(p.p30)}">${p.p30}%</span></td>
+        <td class="wrap"><div class="chips">${why}</div><div class="news">${newsLine(p.news)}</div></td></tr>`;
+    }).join("");
+  }
+  // ---- unlock, decrypt, act
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  const b64 = (buf) => { let x = ""; const b = new Uint8Array(buf); for (let i = 0; i < b.length; i += 32768) x += String.fromCharCode.apply(null, b.subarray(i, i + 32768)); return btoa(x); };
+  const unb64 = (x) => Uint8Array.from(atob(x), (c) => c.charCodeAt(0));
+  const SK = "scuttle_site";
+  const conf = () => { try { return JSON.parse(localStorage.getItem(SK) || "{}"); } catch (e) { return {}; } };
+  const guessRepo = () => location.hostname.endsWith(".github.io") ? `${location.hostname.split(".")[0]}/${location.pathname.split("/").filter(Boolean)[0] || ""}` : "";
+  let keys = null;
+  async function deriveKeys(pass, repo) {
+    const base = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveBits"]);
+    const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", salt: enc.encode("scuttle:" + repo.toLowerCase()), iterations: 150000, hash: "SHA-256" }, base, 512));
+    return { aes: await crypto.subtle.importKey("raw", bits.slice(0, 32), "AES-GCM", false, ["decrypt"]), mac: await crypto.subtle.importKey("raw", bits.slice(32), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]) };
+  }
+  const ghHead = (c) => ({ Accept: "application/vnd.github+json", ...(c.token ? { Authorization: `Bearer ${c.token}` } : {}) });
+  async function load() {
+    const c = conf();
+    if (!c.repo || !c.pass) return showLock();
+    try {
+      keys = keys || (await deriveKeys(c.pass, c.repo));
+      const r = await fetch(`https://api.github.com/repos/${c.repo}/contents/data.enc?ref=data&t=${Date.now()}`, { headers: ghHead(c), cache: "no-store" });
+      if (!r.ok) throw new Error(r.status === 404 ? "No board data yet. Save the setup in the Sleeper tab first." : `GitHub said ${r.status}`);
+      const f = JSON.parse(dec.decode(unb64((await r.json()).content.replace(/\n/g, ""))));
+      let txt;
+      try { txt = dec.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(f.iv) }, keys.aes, unb64(f.ct))); } catch (e) { throw new Error("Wrong passphrase."); }
+      document.getElementById("lock").hidden = true;
+      render(JSON.parse(txt));
+    } catch (e) { showLock(e.message); }
+  }
+  function showLock(err) {
+    const c = conf(), l = document.getElementById("lock"); l.hidden = false;
+    document.getElementById("lk-repo").value = c.repo || guessRepo();
+    document.getElementById("lk-err").textContent = err || "";
+  }
+  document.getElementById("lockf").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const c = conf(), t = document.getElementById("lk-token").value.trim();
+    c.repo = document.getElementById("lk-repo").value.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+    c.pass = document.getElementById("lk-pass").value; if (t) c.token = t;
+    try { localStorage.setItem(SK, JSON.stringify(c)); } catch (e) {}
+    keys = null; load();
+  });
+  document.getElementById("lockBtn").onclick = () => { try { localStorage.removeItem(SK); } catch (e) {} location.reload(); };
+  async function request(kind, extra, btn) {
+    const c = conf();
+    if (!c.token) { alertMsg(btn, "Add your GitHub token (Lock, then unlock with it) to use buttons."); return; }
+    const r = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2), kind, at: new Date().toISOString(), give: extra.give || [], get: extra.get || [], tx: extra.tx || "" };
+    keys = keys || (await deriveKeys(c.pass, c.repo));
+    r.sig = b64(await crypto.subtle.sign("HMAC", keys.mac, enc.encode(JSON.stringify([r.id, r.kind, r.at, r.give, r.get, r.tx]))));
+    btn.disabled = true; const old = btn.textContent; btn.textContent = "Queuing…";
+    const res = await fetch(`https://api.github.com/repos/${c.repo}/contents/requests/${r.id}.json`, { method: "PUT", headers: { ...ghHead(c), "Content-Type": "application/json" }, body: JSON.stringify({ message: `request: ${kind}`, branch: "data", content: b64(enc.encode(JSON.stringify(r))) }) });
+    if (res.ok) { btn.textContent = "Queued"; alertMsg(btn, "The Sleeper tab will do this within about 5 minutes, then this page updates."); }
+    else { btn.disabled = false; btn.textContent = old; alertMsg(btn, `Couldn't queue it (GitHub ${res.status}). Check the token.`); }
+  }
+  function alertMsg(btn, text) { let m = btn.parentElement.querySelector(".msg"); if (!m) { m = document.createElement("span"); m.className = "msg"; btn.parentElement.appendChild(m); } m.textContent = text; }
+  document.body.addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-act]"); if (!b) return; ev.stopPropagation();
+    const k = b.dataset.act;
+    if (k === "send" && !confirm(`Send trade #${b.dataset.label}? It expires in 24 hours.`)) return;
+    if (k === "accept" && !confirm("Accept this trade?")) return;
+    request(k, { give: (b.dataset.give || "").split(",").filter(Boolean), get: (b.dataset.get || "").split(",").filter(Boolean), tx: b.dataset.tx || "" }, b);
+  }, true);
+  load();
+  setInterval(() => { if (document.visibilityState === "visible" && conf().pass) load(); }, 120000);
+})();
+</script>
+
+</body></html>
