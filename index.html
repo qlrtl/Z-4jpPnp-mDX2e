@@ -183,6 +183,7 @@ html, body { overflow-x: hidden; }
     <div class="banner" id="deadline" hidden></div>
     <div class="banner" id="auto" hidden></div>
     <div class="banner" id="dead" hidden style="background:var(--bad-soft);color:var(--bad)"></div>
+    <div class="banner" id="health" hidden style="background:var(--good-soft);color:var(--good)"></div>
   </header>
 
   <section id="s-week">
@@ -442,10 +443,28 @@ html, body { overflow-x: hidden; }
         <ul>${W.lines.map((l) => `<li class="${/LOCK/.test(l) ? "lock" : /SWAP/.test(l) ? "swap" : ""}">${esc(l.replace(/\s+/g, " ").trim())}</li>`).join("")}</ul>`;
     }
     // are the bots still running in the Sleeper tab?
-    if (d.bots && (!d.bots.lineup || !d.bots.autopilot)) { const x = document.getElementById("dead"); x.hidden = false; x.textContent = `${[!d.bots.lineup && "The lineup bot", !d.bots.autopilot && "the autopilot"].filter(Boolean).join(" and ")} ${!d.bots.lineup && !d.bots.autopilot ? "aren't" : "isn't"} running (the Sleeper tab probably reloaded). Tell Claude "restart the bots".`.replace(/^the/, "The"); }
+    // are the bots alive? stale data = the tab, app or computer stopped; per-bot flags = one bot stopped or erroring
+    { const x = document.getElementById("dead"), ok = document.getElementById("health"), h = d.health || {}, B = h.bots || {};
+      const at = (d.sync || {}).at || Date.parse(d.generated), age = (Date.now() - at) / 6e4, every = h.pushEvery || 180, probs = [];
+      const fmt = (m) => m < 120 ? `${Math.round(m)} minutes` : `${Math.round(m / 60)} hours`;
+      const names = { lineup: "The lineup bot", autopilot: "The autopilot", outfill: "The out-fill rule", sync: "The site sync" };
+      const stale = age > every * 2 + 15;
+      if (stale) probs.push(`No update from your Sleeper tab for ${fmt(age)} (it normally checks in every ${every} minutes). The Claude desktop app may be closed, the computer asleep or offline, or the Sleeper tab reloaded or logged out. Open the app and check the tab; if it's still quiet, tell Claude "restart the bots".`);
+      else {
+        const legacy = { lineup: d.bots && d.bots.lineup, autopilot: d.bots && d.bots.autopilot };
+        for (const k of Object.keys(names)) {
+          const b = B[k], on = b ? b.on : legacy[k];
+          if (on === false) probs.push(`${names[k]} isn't running. Tell Claude "restart the bots".`);
+          else if (b && b.err) { const t = Date.parse((/^\[([^\]]+)\]/.exec(b.err) || [])[1] || "") || b.errAt || null; if (!t || Date.now() - t < 3 * 36e5) probs.push(`${names[k]} reported a problem: ${b.err.replace(/^\[[^\]]+\]\s*/, "")}`); }
+        }
+      }
+      x.hidden = !probs.length; x.innerHTML = probs.map(esc).join("<br>");
+      ok.hidden = !!probs.length || !d.health;
+      if (d.health) ok.textContent = `All bots running · last check-in ${age < 1 ? "just now" : fmt(age) + " ago"} · alerts here if the tab goes quiet for more than ${every * 2 + 15} minutes`;
+    }
     // autopilot status
     if (d.autopilot) { const a = document.getElementById("auto"); a.hidden = false; const c = d.autopilot.cfg || {}, nextT = (d.autopilot.plan || []).filter((t) => t > Date.now())[0];
-      a.textContent = d.autopilot.mode === "live" ? `Autopilot is live (cautious limits): up to ${c.maxOutPerDay ?? 2} offer a day sending at most ${c.maxGiveAuto ?? 3} players${c.protectTop ? `, never your top ${c.protectTop === 1 ? "player" : c.protectTop + " players"}` : ""}; accepts only +${c.acceptMinGain ?? 25} or better after a delay; ${c.maxMovesPerWeek ?? 2} pickup a week; injured players go to IR. Every trade must also hold up under the plain model.${nextT ? ` Next offer slot: ${new Date(nextT).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.` : ""}` : `Autopilot trial until ${new Date(d.autopilot.trialEnds).toLocaleDateString([], { month: "short", day: "numeric" })}: it logs what it would do (see the decision log) and changes nothing.`; }
+      a.textContent = d.autopilot.mode === "live" ? `Autopilot is live: sends the best offers (gain × chance they accept), one per manager and never two for the same player, around 9:00 AM, then re-checks every 6 hours and swaps in better ones. Offers last 12 hours. Long shots are allowed so it learns how each manager values players. Your best player only goes in a clearly bigger win. It accepts +${c.acceptMinGain ?? 30} or better after a short delay (no weekly cap), and never takes back more players than you send unless the deal is good without the extra one. Free-agent pickups and IR moves as needed. Every trade must also hold up under the plain model.${nextT ? ` Next offer slot: ${new Date(nextT).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.` : ""}` : `Autopilot trial until ${new Date(d.autopilot.trialEnds).toLocaleDateString([], { month: "short", day: "numeric" })}: it logs what it would do (see the decision log) and changes nothing.`; }
     // playoff odds
     if (d.odds) {
       document.getElementById("oddsSub").textContent = `Thousands of simulated seasons from each team's expected weekly score and the real schedule. Top ${d.odds.playoffTeams} make it. Because your odds are ${d.odds.teams.find((t) => t.mine).playoff}%, playoff weeks currently count ${d.playoffWeight}x in trade math.`;
