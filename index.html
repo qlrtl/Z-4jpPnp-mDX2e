@@ -155,6 +155,36 @@ html, body { overflow-x: hidden; }
   .score b { font-size: 34px; }
   .topbar .in { padding: 8px 10px; }
 }
+
+/* my team: today / this week / past weeks */
+.tm-score { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; }
+.tm-score b { font: 700 30px/1 var(--display); }
+.tm-score .pos { font-size: 13px; }
+.tm h3 { margin: 4px 0 0; font: 600 12px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.today { display: grid; gap: 6px; }
+.today .g { display: grid; grid-template-columns: 48px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 8px; background: rgba(11,15,42,.6); }
+.today .g.bn { opacity: .7; }
+.today .st { font: 500 13px var(--mono); text-align: right; white-space: nowrap; }
+.today .st.live { color: var(--good); } .today .st.fin { color: var(--ink); }
+.slotp { font: 600 11px var(--mono); text-align: center; padding: 3px 0; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+.slotp.bn { background: var(--line); color: var(--muted); }
+td.gm { text-align: center; font-family: var(--mono); font-size: 13px; line-height: 1.2; }
+td.gm small { display: block; font: 11px var(--body); color: var(--muted); }
+td.gm.proj { color: var(--muted); }
+td.gm.live { color: var(--good); }
+td.gm.lk { background: var(--good-soft); color: var(--good); font-weight: 700; }
+tr.bnrow td { opacity: .72; }
+tr.sep td { padding: 4px 12px; font: 600 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: rgba(11,15,42,.4); }
+details.pw { border-bottom: 1px solid var(--line); }
+details.pw:last-child { border-bottom: 0; }
+details.pw summary { display: grid; grid-template-columns: 64px 40px 1fr auto; gap: 10px; align-items: center; padding: 10px 14px; cursor: pointer; list-style: none; }
+details.pw summary::-webkit-details-marker { display: none; }
+details.pw .res { font: 700 12px var(--mono); text-align: center; border-radius: 6px; padding: 2px 0; }
+details.pw .res.w { background: var(--good-soft); color: var(--good); } details.pw .res.l { background: var(--bad-soft); color: var(--bad); } details.pw .res.t { background: var(--line); color: var(--muted); }
+details.pw .sc { font: 500 14px var(--mono); text-align: right; white-space: nowrap; }
+details.pw .duo { padding: 0 14px 14px; }
+.pwbox { background: rgba(11,15,42,.55); border: 1px solid var(--line); border-radius: 10px; }
+@media (max-width: 560px) { details.pw summary { grid-template-columns: 52px 34px 1fr; } details.pw .sc { grid-column: 3; text-align: left; } }
 </style>
 
 <div id="lock" hidden><form id="lockf">
@@ -171,7 +201,7 @@ html, body { overflow-x: hidden; }
   <span style="flex:1"></span>
   <button class="act" data-act="refresh">Refresh now</button>
   <button class="act" id="lockBtn" title="Forget passphrase and token on this device">Lock</button>
-  <nav><a href="#s-week">Matchup</a><a href="#s-offers">Offers</a><a href="#s-trades">Trades</a><a href="#s-roster">Roster</a><a href="#s-alerts">Alerts</a><a href="#s-odds">Standings</a><a href="#s-pickups">Pickups</a><a href="#s-log">Log</a></nav>
+  <nav><a href="#s-team">My team</a><a href="#s-week">Matchup</a><a href="#s-offers">Offers</a><a href="#s-trades">Trades</a><a href="#s-roster">Roster</a><a href="#s-alerts">Alerts</a><a href="#s-odds">Standings</a><a href="#s-pickups">Pickups</a><a href="#s-log">Log</a></nav>
 </div></div>
 <div class="wrap">
   <header>
@@ -185,6 +215,20 @@ html, body { overflow-x: hidden; }
     <div class="banner" id="dead" hidden style="background:var(--bad-soft);color:var(--bad)"></div>
     <div class="banner" id="health" hidden style="background:var(--good-soft);color:var(--good)"></div>
   </header>
+
+  <section id="s-team" class="tm">
+    <h2>My team</h2>
+    <div id="tmScore" class="tm-score"><span class="pos">Shows after the next sync.</span></div>
+    <h3>Today</h3>
+    <div class="today" id="tmToday"><p class="empty">Loading…</p></div>
+    <h3>This week, game by game</h3>
+    <div class="tablebox"><table><thead id="tmHead"></thead><tbody id="tmWeek"><tr><td class="empty">Loading…</td></tr></tbody></table></div>
+    <p class="sub" style="font-size:13px">Green cells are locked games. Gray numbers are Sleeper's projection for games not played yet.</p>
+    <div class="duo">
+      <div class="mini"><h3 id="tmOppName">Opponent's lineup</h3><div id="tmOpp"><p class="empty">–</p></div></div>
+      <div class="mini"><h3>Past weeks</h3><div class="pwbox" id="tmPast"><p class="empty" style="padding:12px 14px">No finished weeks yet.</p></div></div>
+    </div>
+  </section>
 
   <section id="s-week">
     <h2>This week</h2>
@@ -437,6 +481,46 @@ html, body { overflow-x: hidden; }
         <td>${x.drop ? `${esc(N(x.drop))}<div class="pos">${x.dropCost <= 0 ? "costs you nothing over the season" : `about −${Math.round(x.dropCost)} locked pts over the season`}</div>` : "Open roster spot"}</td></tr>`).join("");
     } else document.getElementById("stream").innerHTML = '<tr><td colspan="5" class="empty">Shows after the next refresh.</td></tr>';
 
+    // my team: today, this week game by game, opponent, past weeks
+    const T = d.team;
+    if (T && T.lineup) {
+      const M = T.matchup || {}, me = M.me || {}, op = M.opp || {};
+      const fx = (v) => (v == null ? "–" : (Math.round(v * 10) / 10).toString());
+      const diff = (me.points || 0) - (op.points || 0);
+      document.getElementById("tmScore").innerHTML = `<span>${esc(T.myName)} <b>${fx(me.points)}</b></span>${op.name ? `<span>${esc(op.name)} <b>${fx(op.points)}</b></span><span class="chip ${diff >= 0 ? "good" : "warn"}">${diff >= 0 ? "ahead" : "behind"} by ${fx(Math.abs(diff))}</span>` : ""}<span class="pos">week ${T.week} · as of ${new Date(T.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}</span>`;
+      const all = [...T.lineup.map((x) => ({ ...x, kind: "s" })), ...T.bench.map((x) => ({ ...x, kind: "b" })), ...(T.ir || []).map((x) => ({ ...x, kind: "i" }))];
+      const dkey = (t) => { const z = new Date(t); return `${z.getFullYear()}-${z.getMonth() + 1}-${z.getDate()}`; };
+      const tk = dkey(Date.now()), tm = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const pn = (x) => `<b data-pid="${x.pid}" class="pname">${esc(x.name)}</b>${x.injury ? `<span class="inj">${esc(x.injury)}</span>` : ""}`;
+      const today = [];
+      all.forEach((x) => (x.games || []).forEach((g) => { if (dkey(g.start) === tk) today.push({ x, g }); }));
+      const rk = { s: 0, b: 1, i: 2 }; today.sort((a, b) => rk[a.x.kind] - rk[b.x.kind] || a.g.start - b.g.start);
+      document.getElementById("tmToday").innerHTML = !today.length ? '<p class="empty">No games today for your team.</p>' : today.map(({ x, g }) => {
+        const lk = x.lockGid === g.gid, live = g.st === "in_progress" || (g.st !== "complete" && g.st !== "pre_game");
+        const st = g.st === "complete" ? `<span class="st fin">Final · ${fx(g.pts)}${lk ? " · locked" : ""}</span>` : g.st === "pre_game" ? `<span class="st">${tm(g.start)} · proj ${fx(g.proj)}</span>` : `<span class="st live">● ${fx(g.pts)} · ${Math.round((g.frac || 0) * 100)}% played</span>`;
+        return `<div class="g ${x.kind !== "s" ? "bn" : ""}"><span class="slotp ${x.kind !== "s" ? "bn" : ""}">${esc(x.slot)}</span><span>${pn(x)} <span class="pos">${esc(x.team)} vs ${esc(g.opp || "")}</span></span>${st}</div>`;
+      }).join("");
+      const days = [...new Set(all.flatMap((x) => (x.games || []).map((g) => dkey(g.start))))].map((k) => { const [y, m, dd] = k.split("-").map(Number); return { k, t: new Date(y, m - 1, dd) }; }).sort((a, b) => a.t - b.t);
+      document.getElementById("tmHead").innerHTML = `<tr><th>Slot</th><th>Player</th>${days.map((x) => `<th style="text-align:center"${x.k === tk ? ' class="num" title="today"' : ""}>${x.t.toLocaleDateString([], { weekday: "short" })} ${x.t.getDate()}${x.k === tk ? " ●" : ""}</th>`).join("")}</tr>`;
+      const cell = (x, day) => {
+        const g = (x.games || []).find((g) => dkey(g.start) === day.k); if (!g) return '<td class="gm"></td>';
+        const lk = x.lockGid === g.gid, o = `<small>${esc(g.opp || "")}</small>`;
+        if (g.st === "complete") return `<td class="gm ${lk ? "lk" : ""}"${lk ? ' title="locked"' : ""}>${fx(g.pts)}${o}</td>`;
+        if (g.st === "pre_game") return `<td class="gm proj">~${fx(g.proj)}${o}</td>`;
+        return `<td class="gm live ${lk ? "lk" : ""}">● ${fx(g.pts)}${o}</td>`;
+      };
+      const rowH = (x) => `<tr class="${x.kind !== "s" ? "bnrow" : ""}"><td><span class="role ${x.kind === "s" ? "start" : ""}">${esc(x.slot)}</span></td><td>${pn(x)}<div class="pos">${esc(x.team)}${x.pos && x.pos.length ? " · " + esc(x.pos.join("/")) : ""}</div></td>${days.map((day) => cell(x, day)).join("")}</tr>`;
+      const sep = (t) => `<tr class="sep"><td colspan="${2 + days.length}">${t}</td></tr>`;
+      document.getElementById("tmWeek").innerHTML = T.lineup.map((x) => rowH({ ...x, kind: "s" })).join("") + (T.bench.length ? sep("Bench") + T.bench.map((x) => rowH({ ...x, kind: "b" })).join("") : "") + ((T.ir || []).length ? sep("IR") + T.ir.map((x) => rowH({ ...x, kind: "i" })).join("") : "");
+      const list = (side) => !side || !side.starters ? '<p class="empty">–</p>' : side.starters.map((p) => `<div class="row"><span>${esc(p.name)} <span class="pos">${esc(p.team)}</span></span><span class="pos" style="font-family:var(--mono);color:var(--ink)">${fx(p.pts)}</span></div>`).join("");
+      document.getElementById("tmOppName").textContent = op.name ? `${op.name}'s lineup` : "Opponent's lineup";
+      document.getElementById("tmOpp").innerHTML = list(op);
+      const P2 = T.past || [];
+      document.getElementById("tmPast").innerHTML = !P2.length ? '<p class="empty" style="padding:12px 14px">No finished weeks yet.</p>' : P2.map((w) => {
+        const a = (w.me || {}).points || 0, b = (w.opp || {}).points || 0, r = a > b ? "w" : a < b ? "l" : "t";
+        return `<details class="pw"><summary><span class="pos">Week ${w.week}</span><span class="res ${r}">${r.toUpperCase()}</span><span>vs ${esc((w.opp || {}).name || "–")}</span><span class="sc">${fx(a)} – ${fx(b)}</span></summary><div class="duo"><div><h3 style="margin:0 0 6px;font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">You</h3>${list(w.me)}</div><div><h3 style="margin:0 0 6px;font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">${esc((w.opp || {}).name || "Opponent")}</h3>${list(w.opp)}</div></div></details>`;
+      }).join("");
+    } else if (T && T.err) document.getElementById("tmToday").innerHTML = `<p class="empty">Couldn't build this view: ${esc(T.err)}</p>`;
     // this week (from the lineup bot's last check)
     const W = d.thisWeek;
     if (W && W.lines) {
