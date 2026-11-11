@@ -168,7 +168,12 @@ html, body { overflow-x: hidden; }
 .today .st.live { color: var(--good); } .today .st.fin { color: var(--ink); }
 .slotp { font: 600 11px var(--mono); text-align: center; padding: 3px 0; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
 .slotp.bn { background: var(--line); color: var(--muted); }
-td.gm { text-align: center; font-family: var(--mono); font-size: 13px; line-height: 1.2; }
+table.tmt { min-width: 0; }
+table.tmt th, table.tmt td { padding: 7px 6px; }
+table.tmt td.pc { padding-left: 10px; min-width: 128px; white-space: normal; }
+table.tmt td.pc .role { margin-right: 6px; font-size: 10px; padding: 1px 5px; }
+td.gm { text-align: center; font-family: var(--mono); font-size: 13px; line-height: 1.2; min-width: 46px; }
+.unl { color: var(--muted); }
 td.gm small { display: block; font: 11px var(--body); color: var(--muted); }
 td.gm.proj { color: var(--muted); }
 td.gm.live { color: var(--good); }
@@ -222,8 +227,8 @@ details.pw .duo { padding: 0 14px 14px; }
     <h3>Today</h3>
     <div class="today" id="tmToday"><p class="empty">Loading…</p></div>
     <h3>This week, game by game</h3>
-    <div class="tablebox"><table><thead id="tmHead"></thead><tbody id="tmWeek"><tr><td class="empty">Loading…</td></tr></tbody></table></div>
-    <p class="sub" style="font-size:13px">Green cells are locked games. Gray numbers are Sleeper's projection for games not played yet.</p>
+    <div class="tablebox"><table class="tmt"><thead id="tmHead"></thead><tbody id="tmWeek"><tr><td class="empty">Loading…</td></tr></tbody></table></div>
+    <p class="sub" style="font-size:13px">Green = locked. Gray = Sleeper's projection and tip-off time. Unlocked scores in the lineups are shown dim.</p>
     <div class="duo">
       <div class="mini"><h3 id="tmOppName">Opponent's lineup</h3><div id="tmOpp"><p class="empty">–</p></div></div>
       <div class="mini"><h3>Past weeks</h3><div class="pwbox" id="tmPast"><p class="empty" style="padding:12px 14px">No finished weeks yet.</p></div></div>
@@ -487,10 +492,10 @@ details.pw .duo { padding: 0 14px 14px; }
       const M = T.matchup || {}, me = M.me || {}, op = M.opp || {};
       const fx = (v) => (v == null ? "–" : (Math.round(v * 10) / 10).toString());
       const diff = (me.points || 0) - (op.points || 0);
-      document.getElementById("tmScore").innerHTML = `<span>${esc(T.myName)} <b>${fx(me.points)}</b></span>${op.name ? `<span>${esc(op.name)} <b>${fx(op.points)}</b></span><span class="chip ${diff >= 0 ? "good" : "warn"}">${diff >= 0 ? "ahead" : "behind"} by ${fx(Math.abs(diff))}</span>` : ""}<span class="pos">week ${T.week} · as of ${new Date(T.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}</span>`;
+      document.getElementById("tmScore").innerHTML = `<span>${esc(T.myName)} <b>${fx(me.points)}</b> <span class="pos">${fx(me.locked)} locked</span></span>${op.name ? `<span>${esc(op.name)} <b>${fx(op.points)}</b> <span class="pos">${fx(op.locked)} locked</span></span><span class="chip ${diff >= 0 ? "good" : "warn"}">${diff >= 0 ? "ahead" : "behind"} by ${fx(Math.abs(diff))}</span>` : ""}<span class="pos">week ${T.week} · as of ${new Date(T.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}</span>`;
       const all = [...T.lineup.map((x) => ({ ...x, kind: "s" })), ...T.bench.map((x) => ({ ...x, kind: "b" })), ...(T.ir || []).map((x) => ({ ...x, kind: "i" }))];
       const dkey = (t) => { const z = new Date(t); return `${z.getFullYear()}-${z.getMonth() + 1}-${z.getDate()}`; };
-      const tk = dkey(Date.now()), tm = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const tk = dkey(Date.now()), tm = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), ts = (t) => { const z = new Date(t), h = z.getHours(), mm = z.getMinutes(); return `${h % 12 || 12}${mm ? ":" + String(mm).padStart(2, "0") : ""}${h < 12 ? "a" : "p"}`; };
       const pn = (x) => `<b data-pid="${x.pid}" class="pname">${esc(x.name)}</b>${x.injury ? `<span class="inj">${esc(x.injury)}</span>` : ""}`;
       const today = [];
       all.forEach((x) => (x.games || []).forEach((g) => { if (dkey(g.start) === tk) today.push({ x, g }); }));
@@ -501,20 +506,20 @@ details.pw .duo { padding: 0 14px 14px; }
         return `<div class="g ${x.kind !== "s" ? "bn" : ""}"><span class="slotp ${x.kind !== "s" ? "bn" : ""}">${esc(x.slot)}</span><span>${pn(x)} <span class="pos">${esc(x.team)} vs ${esc(g.opp || "")}</span></span>${st}</div>`;
       }).join("");
       const days = [...new Set(all.flatMap((x) => (x.games || []).map((g) => dkey(g.start))))].map((k) => { const [y, m, dd] = k.split("-").map(Number); return { k, t: new Date(y, m - 1, dd) }; }).sort((a, b) => a.t - b.t);
-      document.getElementById("tmHead").innerHTML = `<tr><th>Slot</th><th>Player</th>${days.map((x) => `<th style="text-align:center"${x.k === tk ? ' class="num" title="today"' : ""}>${x.t.toLocaleDateString([], { weekday: "short" })} ${x.t.getDate()}${x.k === tk ? " ●" : ""}</th>`).join("")}</tr>`;
+      document.getElementById("tmHead").innerHTML = `<tr><th style="padding-left:10px">Player</th>${days.map((x) => `<th style="text-align:center"${x.k === tk ? ' class="num" title="today"' : ""}>${x.t.toLocaleDateString([], { weekday: "short" })} ${x.t.getDate()}${x.k === tk ? " ●" : ""}</th>`).join("")}</tr>`;
       const cell = (x, day) => {
         const g = (x.games || []).find((g) => dkey(g.start) === day.k); if (!g) return '<td class="gm"></td>';
         const lk = x.lockGid === g.gid, o = `<small>${esc(g.opp || "")}</small>`;
         if (g.st === "complete") return `<td class="gm ${lk ? "lk" : ""}"${lk ? ' title="locked"' : ""}>${fx(g.pts)}${o}</td>`;
-        if (g.st === "pre_game") return `<td class="gm proj">~${fx(g.proj)}${o}</td>`;
+        if (g.st === "pre_game") return `<td class="gm proj">~${fx(g.proj)}<small>${esc(g.opp || "")} ${ts(g.start)}</small></td>`;
         return `<td class="gm live ${lk ? "lk" : ""}">● ${fx(g.pts)}${o}</td>`;
       };
-      const rowH = (x) => `<tr class="${x.kind !== "s" ? "bnrow" : ""}"><td><span class="role ${x.kind === "s" ? "start" : ""}">${esc(x.slot)}</span></td><td>${pn(x)}<div class="pos">${esc(x.team)}${x.pos && x.pos.length ? " · " + esc(x.pos.join("/")) : ""}</div></td>${days.map((day) => cell(x, day)).join("")}</tr>`;
-      const sep = (t) => `<tr class="sep"><td colspan="${2 + days.length}">${t}</td></tr>`;
+      const rowH = (x) => `<tr class="${x.kind !== "s" ? "bnrow" : ""}"><td class="pc"><span class="role ${x.kind === "s" ? "start" : ""}">${esc(x.slot)}</span>${pn(x)}<div class="pos">${esc(x.team)}${x.pos && x.pos.length ? " · " + esc(x.pos.join("/")) : ""}</div></td>${days.map((day) => cell(x, day)).join("")}</tr>`;
+      const sep = (t) => `<tr class="sep"><td colspan="${1 + days.length}">${t}</td></tr>`;
       document.getElementById("tmWeek").innerHTML = T.lineup.map((x) => rowH({ ...x, kind: "s" })).join("") + (T.bench.length ? sep("Bench") + T.bench.map((x) => rowH({ ...x, kind: "b" })).join("") : "") + ((T.ir || []).length ? sep("IR") + T.ir.map((x) => rowH({ ...x, kind: "i" })).join("") : "");
-      const list = (side) => !side || !side.starters ? '<p class="empty">–</p>' : side.starters.map((p) => `<div class="row"><span>${esc(p.name)} <span class="pos">${esc(p.team)}</span></span><span class="pos" style="font-family:var(--mono);color:var(--ink)">${fx(p.pts)}</span></div>`).join("");
+      const list = (side, cur) => !side || !side.starters ? '<p class="empty">–</p>' : side.starters.map((p) => `<div class="row"><span>${esc(p.name)} <span class="pos">${esc(p.team)}</span></span><span class="pos ${cur && !p.lk ? "unl" : ""}" style="font-family:var(--mono)${cur && !p.lk ? "" : ";color:var(--ink)"}">${p.pts == null ? "–" : fx(p.pts)}</span></div>`).join("");
       document.getElementById("tmOppName").textContent = op.name ? `${op.name}'s lineup` : "Opponent's lineup";
-      document.getElementById("tmOpp").innerHTML = list(op);
+      document.getElementById("tmOpp").innerHTML = list(op, true);
       const P2 = T.past || [];
       document.getElementById("tmPast").innerHTML = !P2.length ? '<p class="empty" style="padding:12px 14px">No finished weeks yet.</p>' : P2.map((w) => {
         const a = (w.me || {}).points || 0, b = (w.opp || {}).points || 0, r = a > b ? "w" : a < b ? "l" : "t";
