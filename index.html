@@ -449,12 +449,12 @@ details.pw .duo { padding: 0 14px 14px; }
     const lineupG = groups.map((g, n) => [g, n]).filter(([g]) => g.kind !== "upgrade"), upG = groups.map((g, n) => [g, n]).filter(([g]) => g.kind === "upgrade");
     document.getElementById("trades").innerHTML = !lineupG.length ? '<p class="empty">No trades tonight that move your lineup up without hurting the other team. Check again tomorrow.</p>' : lineupG.map(([g, n]) => card(g, n)).join("");
     // suggested offers (trading is paused: nothing goes out unless you press Send)
-    const SG = d.suggest || {}, sgl = SG.list || [], sgn = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10);
+    const SG = d.suggest || {}, sgl = SG.list || [], sgs = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10);
     const pk = (t) => [...t.give].sort().join(",") + ">" + [...t.get].sort().join(",");
     document.getElementById("suggest").innerHTML = SG.err ? `<p class="empty">Couldn't build suggestions: ${esc(SG.err)}</p>` : !sgl.length ? '<p class="empty">No small winning trades right now. Check again after the next refresh.</p>' : sgl.map((s, n) => `<article class="card ${n === 0 ? "top" : ""}">
       <div class="cardhead"><div class="with"><span class="num-badge">${n + 1}</span>${esc(s.team)} <span>· ${s.give.length}-for-${s.get.length} · ${esc(s.odds)} (~${s.pAcc ?? "?"}% to be accepted)</span></div><div class="gain">+${s.adj}<small>locked pts over the season${s.adj !== s.myGain ? ` (+${s.myGain} before risk)` : ""}</small></div></div>
       <div class="swap"><div class="side"><h3>You send</h3>${s.give.map(line).join("")}</div><div class="arrow" aria-hidden="true">→</div><div class="side"><h3>You get</h3>${s.get.map(line).join("")}</div></div>
-      <div class="chips"><span class="chip">now ${sgn(s.nowDelta)} a week</span><span class="chip good">playoffs ${sgn(s.poDelta)} a week</span>${(s.notes || []).map((x) => `<span class="chip warn">${esc(x)}</span>`).join("")}</div>
+      <div class="chips"><span class="chip">now ${sgs(s.nowDelta)} a week</span><span class="chip good">playoffs ${sgs(s.poDelta)} a week</span>${(s.notes || []).map((x) => `<span class="chip warn">${esc(x)}</span>`).join("")}</div>
       <div class="acts">${pendKey.has(pk(s)) ? '<span class="msg">Offer already out</span>' : `<button class="act go" data-act="send" data-give="${s.give.join(",")}" data-get="${s.get.join(",")}" data-label="S${n + 1}">Send offer</button>`}
         <select class="dl-why" aria-label="Reason (optional)"><option value="">Reason (optional)</option><option>keep the player I'd send</option><option>don't want the player I'd get</option><option>too much injury risk</option><option>not worth it</option></select>
         <button class="act" data-act="dislike" data-give="${s.give.join(",")}" data-get="${s.get.join(",")}" data-team="${esc(s.team)}">I don't like this trade</button></div>
