@@ -206,7 +206,7 @@ details.pw .duo { padding: 0 14px 14px; }
   <span style="flex:1"></span>
   <button class="act" data-act="refresh">Refresh now</button>
   <button class="act" id="lockBtn" title="Forget passphrase and token on this device">Lock</button>
-  <nav><a href="#s-team">My team</a><a href="#s-week">Matchup</a><a href="#s-offers">Offers</a><a href="#s-trades">Trades</a><a href="#s-roster">Roster</a><a href="#s-alerts">Alerts</a><a href="#s-odds">Standings</a><a href="#s-pickups">Pickups</a><a href="#s-log">Log</a></nav>
+  <nav><a href="#s-team">My team</a><a href="#s-suggest">Suggested</a><a href="#s-week">Matchup</a><a href="#s-offers">Offers</a><a href="#s-trades">Trades</a><a href="#s-roster">Roster</a><a href="#s-alerts">Alerts</a><a href="#s-odds">Standings</a><a href="#s-pickups">Pickups</a><a href="#s-log">Log</a></nav>
 </div></div>
 <div class="wrap">
   <header>
@@ -252,6 +252,13 @@ details.pw .duo { padding: 0 14px 14px; }
     <h2>Alerts</h2>
     <p class="sub">Big nights from free agents and anything the Sleeper tab did on its own, plus your requests from this page.</p>
     <div class="log" id="alerts"><p class="empty" style="padding:12px 14px">Nothing yet.</p></div>
+  </section>
+
+  <section id="s-suggest">
+    <h2>Suggested offers</h2>
+    <p class="sub">Trades that leave you at least +5 locked points ahead over the season without costing you in the playoffs, and that the other manager could plausibly accept. Injured players you'd get are discounted for return risk, and lost weeks or a forced drop are charged. Nothing is sent unless you press Send. "I don't like this trade" hides it and teaches the bot your taste.</p>
+    <div class="cards" id="suggest"><p class="empty">Shows after the next sync.</p></div>
+    <div id="valadj"></div>
   </section>
 
   <section id="s-offers">
@@ -441,6 +448,19 @@ details.pw .duo { padding: 0 14px 14px; }
     };
     const lineupG = groups.map((g, n) => [g, n]).filter(([g]) => g.kind !== "upgrade"), upG = groups.map((g, n) => [g, n]).filter(([g]) => g.kind === "upgrade");
     document.getElementById("trades").innerHTML = !lineupG.length ? '<p class="empty">No trades tonight that move your lineup up without hurting the other team. Check again tomorrow.</p>' : lineupG.map(([g, n]) => card(g, n)).join("");
+    // suggested offers (trading is paused: nothing goes out unless you press Send)
+    const SG = d.suggest || {}, sgl = SG.list || [], sgn = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10);
+    const pk = (t) => [...t.give].sort().join(",") + ">" + [...t.get].sort().join(",");
+    document.getElementById("suggest").innerHTML = SG.err ? `<p class="empty">Couldn't build suggestions: ${esc(SG.err)}</p>` : !sgl.length ? '<p class="empty">No small winning trades right now. Check again after the next refresh.</p>' : sgl.map((s, n) => `<article class="card ${n === 0 ? "top" : ""}">
+      <div class="cardhead"><div class="with"><span class="num-badge">${n + 1}</span>${esc(s.team)} <span>· ${s.give.length}-for-${s.get.length} · ${esc(s.odds)} (~${s.pAcc ?? "?"}% to be accepted)</span></div><div class="gain">+${s.adj}<small>locked pts over the season${s.adj !== s.myGain ? ` (+${s.myGain} before risk)` : ""}</small></div></div>
+      <div class="swap"><div class="side"><h3>You send</h3>${s.give.map(line).join("")}</div><div class="arrow" aria-hidden="true">→</div><div class="side"><h3>You get</h3>${s.get.map(line).join("")}</div></div>
+      <div class="chips"><span class="chip">now ${sgn(s.nowDelta)} a week</span><span class="chip good">playoffs ${sgn(s.poDelta)} a week</span>${(s.notes || []).map((x) => `<span class="chip warn">${esc(x)}</span>`).join("")}</div>
+      <div class="acts">${pendKey.has(pk(s)) ? '<span class="msg">Offer already out</span>' : `<button class="act go" data-act="send" data-give="${s.give.join(",")}" data-get="${s.get.join(",")}" data-label="S${n + 1}">Send offer</button>`}
+        <select class="dl-why" aria-label="Reason (optional)"><option value="">Reason (optional)</option><option>keep the player I'd send</option><option>don't want the player I'd get</option><option>too much injury risk</option><option>not worth it</option></select>
+        <button class="act" data-act="dislike" data-give="${s.give.join(",")}" data-get="${s.get.join(",")}" data-team="${esc(s.team)}">I don't like this trade</button></div>
+    </article>`).join("");
+    const VA = Object.entries(d.valueAdj || {}).filter(([, a]) => a && a.mult);
+    document.getElementById("valadj").innerHTML = !VA.length ? "" : `<h3 style="margin:14px 0 6px;font:600 12px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Value changes learned from your dislikes</h3><div class="pwbox">${VA.map(([p, a]) => `<div class="row" style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 14px"><span><b>${esc(a.name)}</b> valued ${Math.round((1 - a.mult) * 100)}% lower: ${esc(a.why)}.</span><span><button class="act" data-act="undo_adj" data-tx="${p}">Undo</button></span></div>`).join("")}</div>`;
     const offers = d.offers;
     document.getElementById("offers").innerHTML = !offers ? '<p class="empty">Shows after the next refresh.</p>' : !offers.length ? '<p class="empty">No open offers right now.</p>' : offers.map((o) => {
       const out = o.dir === "out";
@@ -644,7 +664,7 @@ details.pw .duo { padding: 0 14px 14px; }
     r.sig = b64(await crypto.subtle.sign("HMAC", keys.mac, enc.encode(JSON.stringify([r.id, r.kind, r.at, r.give, r.get, r.tx]))));
     btn.disabled = true; const old = btn.textContent; btn.textContent = "Queuing…";
     const res = await fetch(`https://api.github.com/repos/${c.repo}/contents/requests/${r.id}.json`, { method: "PUT", headers: { ...ghHead(c), "Content-Type": "application/json" }, body: JSON.stringify({ message: `request: ${kind}`, branch: "data", content: b64(enc.encode(JSON.stringify(r))) }) });
-    if (res.ok) { btn.textContent = "Queued"; alertMsg(btn, "The Sleeper tab will do this within about 5 minutes, then this page updates."); }
+    if (res.ok) { btn.textContent = kind === "dislike" ? "Noted" : "Queued"; if (kind === "dislike") { const a = btn.closest("article"); if (a) a.style.opacity = ".35"; } alertMsg(btn, kind === "dislike" ? "Hidden. The bot will take it into account." : "The Sleeper tab picks this up within about 20 seconds, then this page updates."); }
     else { btn.disabled = false; btn.textContent = old; alertMsg(btn, `Couldn't queue it (GitHub ${res.status}). Check the token.`); }
   }
   function alertMsg(btn, text) { let m = btn.parentElement.querySelector(".msg"); if (!m) { m = document.createElement("span"); m.className = "msg"; btn.parentElement.appendChild(m); } m.textContent = text; }
@@ -652,6 +672,8 @@ details.pw .duo { padding: 0 14px 14px; }
     const b = ev.target.closest("[data-act]"); if (!b) return; ev.stopPropagation();
     const k = b.dataset.act;
     if (k === "send" && !confirm(`Send trade #${b.dataset.label}? It expires in 24 hours.`)) return;
+    if (k === "dislike") { const why = (b.parentElement.querySelector(".dl-why") || {}).value || ""; b.dataset.tx = why + "|" + (b.dataset.team || ""); }
+    if (k === "undo_adj" && !confirm("Undo this value change?")) return;
     if (k === "accept" && !confirm("Accept this trade?")) return;
     if (k === "counter" && !confirm(`Send this counter and decline their offer? Their offer is only declined if your counter goes out.`)) return;
     if (k === "swap" && !confirm(`Send #${b.dataset.label} and withdraw this offer? The old offer is only withdrawn if the new one goes out.`)) return;
