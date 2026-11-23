@@ -261,6 +261,12 @@ details.pw .duo { padding: 0 14px 14px; }
     <div id="valadj"></div>
   </section>
 
+  <section id="s-stars">
+    <h2>Best offer for each star</h2>
+    <p class="sub">For every top-50 target you don't own (top 25 shown), the most likely trade that keeps your lineup even or better (equal-count trades also even or better player-for-player). Shown even when the chance is low, so you can see what each star would cost.</p>
+    <div class="tablebox"><table><thead><tr><th>Star</th><th>Owner</th><th>You send</th><th class="num">Playoffs / wk</th><th class="num">This week</th><th class="num">Chance</th></tr></thead><tbody id="stars"><tr><td colspan="6" class="empty">Shows after the next sync.</td></tr></tbody></table></div>
+  </section>
+
   <section id="s-offers">
     <h2>Open offers</h2>
     <p class="sub">Trades waiting on an answer, both ones you sent and ones sent to you, with what each would do for your team. If a trade idea below beats an offer you sent by 15+ locked points, it says which number to send instead.</p>
@@ -455,6 +461,7 @@ details.pw .duo { padding: 0 14px 14px; }
     // suggested offers (trading is paused: nothing goes out unless you press Send)
     const SG = d.suggest || {}, sgl = SG.list || [], sgs = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10);
     const pk = (t) => [...t.give].sort().join(",") + ">" + [...t.get].sort().join(",");
+    try { const SO = d.starOffers || [], sn = (p) => esc(N(p)); document.getElementById("stars").innerHTML = SO.length ? SO.map((o) => { const t = o.trade; return `<tr><td>${sn(o.target)} <span class="pos">#${o.rank}</span></td>${t ? `<td>${esc(t.team)}</td><td>${t.give.map(sn).join(" + ")}${t.get.length > 1 ? ` <span class="pos">(also get ${t.get.filter((x) => x !== o.target).map(sn).join(", ")})</span>` : ""}</td><td class="num">${sgs(t.po)}</td><td class="num">${sgs(t.now)}</td><td class="num">${t.pAcc ?? "?"}%</td>` : `<td colspan="5" class="pos">No trade that keeps your lineup even or better right now</td>`}</tr>`; }).join("") : '<tr><td colspan="6" class="empty">No targets yet.</td></tr>'; } catch (e) {}
     document.getElementById("suggest").innerHTML = SG.err ? `<p class="empty">Couldn't build suggestions: ${esc(SG.err)}</p>` : !sgl.length ? '<p class="empty">No small winning trades right now. Check again after the next refresh.</p>' : sgl.map((s, n) => `<article class="card ${n === 0 ? "top" : ""}">
       <div class="cardhead"><div class="with"><span class="num-badge">${n + 1}</span>${esc(s.team)} <span>· ${s.give.length}-for-${s.get.length} · ${esc(s.odds)} (~${s.pAcc ?? "?"}% to be accepted)</span></div><div class="gain">${sgs(s.po ?? s.poDelta)}<small>effective pts/week in the playoffs (fit in your lineup)</small>${s.raw != null ? `<small>straight-up: ${sgs(s.raw)} fpts/week (players' values compared directly)</small>` : ""}</div></div>
       <div class="swap"><div class="side"><h3>You send</h3>${s.give.map(line).join("")}</div><div class="arrow" aria-hidden="true">→</div><div class="side"><h3>You get</h3>${s.get.map(line).join("")}</div></div>
