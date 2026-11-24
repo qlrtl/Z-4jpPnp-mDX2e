@@ -190,6 +190,13 @@ details.pw .sc { font: 500 14px var(--mono); text-align: right; white-space: now
 details.pw .duo { padding: 0 14px 14px; }
 .pwbox { background: rgba(11,15,42,.55); border: 1px solid var(--line); border-radius: 10px; }
 @media (max-width: 560px) { details.pw summary { grid-template-columns: 52px 34px 1fr; } details.pw .sc { grid-column: 3; text-align: left; } }
+.board details{border:1px solid var(--line,rgba(127,127,127,.25));border-radius:10px;margin:6px 0}
+.board summary{cursor:pointer;padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.board summary .rk{font-family:var(--mono);color:var(--muted);min-width:2.2em}
+.board .tg{font-size:11px;padding:1px 6px;border-radius:6px;border:1px solid var(--line,rgba(127,127,127,.35));color:var(--muted)}
+.board .cnt{margin-left:auto;color:var(--muted);font-size:13px}
+.board .of{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line,rgba(127,127,127,.18));align-items:center}
+.board .of .nums{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:2px}
 </style>
 
 <div id="lock" hidden><form id="lockf">
@@ -254,17 +261,12 @@ details.pw .duo { padding: 0 14px 14px; }
     <div class="log" id="alerts"><p class="empty" style="padding:12px 14px">Nothing yet.</p></div>
   </section>
 
-  <section id="s-suggest">
-    <h2>Suggested offers</h2>
-    <p class="sub">Trades that make your playoff team stronger (weeks 22+), costing at most 20 locked points a week before then, that are at least even for the other manager and have a 35%+ chance of being accepted. Up to 2 long shots are added at the end, labeled. Injured players you'd get are discounted for return risk. Nothing is sent unless you press Send. "I don't like this trade" hides it and teaches the bot your taste.</p>
-    <div class="cards" id="suggest"><p class="empty">Shows after the next sync.</p></div>
+  <section id="s-board">
+    <h2>Trade targets</h2>
+    <p class="sub">Top-50 targets you don't own. Open a player to see fair offers for him: your lineup stays even or better, and each has a 15%+ chance. Nothing is sent unless you press Send.</p>
+    <div class="board" id="board"><p class="empty">Shows after the next sync.</p></div>
+    <div id="suggest" hidden></div>
     <div id="valadj"></div>
-  </section>
-
-  <section id="s-stars">
-    <h2>Best offer for each star</h2>
-    <p class="sub">For every top-50 target you don't own (top 25 shown), the most likely trade that keeps your lineup even or better (equal-count trades also even or better player-for-player). Shown even when the chance is low, so you can see what each star would cost.</p>
-    <div class="tablebox"><table><thead><tr><th>Star</th><th>Owner</th><th>You send</th><th class="num">Playoffs / wk</th><th class="num">This week</th><th class="num">Chance</th></tr></thead><tbody id="stars"><tr><td colspan="6" class="empty">Shows after the next sync.</td></tr></tbody></table></div>
   </section>
 
   <section id="s-offers">
@@ -461,6 +463,7 @@ details.pw .duo { padding: 0 14px 14px; }
     // suggested offers (trading is paused: nothing goes out unless you press Send)
     const SG = d.suggest || {}, sgl = SG.list || [], sgs = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10);
     const pk = (t) => [...t.give].sort().join(",") + ">" + [...t.get].sort().join(",");
+    try { const B = d.board || [], sn = (p) => esc(N(p)), s2 = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10); document.getElementById("board").innerHTML = B.length ? B.map((b) => `<details><summary><span class="rk">#${b.rank}</span><b>${esc(b.name)}</b>${b.team ? `<span class="pos">${esc(b.team)}</span>` : ""}${b.inj ? `<span class="tg">${esc(b.inj)}</span>` : ""}${b.form ? `<span class="tg">${b.form}</span>` : ""}<span class="cnt">${b.offers.length ? b.offers.length + " offer" + (b.offers.length > 1 ? "s" : "") : "no fair offer"}</span></summary>${b.offers.length ? b.offers.map((o, i) => `<div class="of"><div>Send ${o.give.map(sn).join(" + ")} → get ${o.get.map(sn).join(" + ")}<div class="nums">playoffs ${s2(o.po)}/wk · this week ${s2(o.now)} · ${o.pAcc}% chance</div></div><div>${pendKey.has(pk(o)) ? '<span class="msg">Offer out</span>' : `<button class="act go" data-act="send" data-give="${o.give.join(",")}" data-get="${o.get.join(",")}" data-label="${esc(b.name)} ${i + 1}">Send</button>`}</div></div>`).join("") : '<div class="of"><div class="nums">No fair offer with a 15%+ chance right now.</div></div>'}</details>`).join("") : '<p class="empty">No targets yet.</p>'; } catch (e) {}
     try { const SO = d.starOffers || [], sn = (p) => esc(N(p)); document.getElementById("stars").innerHTML = SO.length ? SO.map((o) => { const t = o.trade; return `<tr><td>${sn(o.target)} <span class="pos">#${o.rank}</span></td>${t ? `<td>${esc(t.team)}</td><td>${t.give.map(sn).join(" + ")}${t.get.length > 1 ? ` <span class="pos">(also get ${t.get.filter((x) => x !== o.target).map(sn).join(", ")})</span>` : ""}</td><td class="num">${sgs(t.po)}</td><td class="num">${sgs(t.now)}</td><td class="num">${t.pAcc ?? "?"}%</td>` : `<td colspan="5" class="pos">No trade that keeps your lineup even or better right now</td>`}</tr>`; }).join("") : '<tr><td colspan="6" class="empty">No targets yet.</td></tr>'; } catch (e) {}
     document.getElementById("suggest").innerHTML = SG.err ? `<p class="empty">Couldn't build suggestions: ${esc(SG.err)}</p>` : !sgl.length ? '<p class="empty">No small winning trades right now. Check again after the next refresh.</p>' : sgl.map((s, n) => `<article class="card ${n === 0 ? "top" : ""}">
       <div class="cardhead"><div class="with"><span class="num-badge">${n + 1}</span>${esc(s.team)} <span>· ${s.give.length}-for-${s.get.length} · ${esc(s.odds)} (~${s.pAcc ?? "?"}% to be accepted)</span></div><div class="gain">${sgs(s.po ?? s.poDelta)}<small>effective pts/week in the playoffs (fit in your lineup)</small>${s.raw != null ? `<small>straight-up: ${sgs(s.raw)} fpts/week (players' values compared directly)</small>` : ""}</div></div>
