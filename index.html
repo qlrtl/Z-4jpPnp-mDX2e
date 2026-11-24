@@ -197,6 +197,18 @@ details.pw .duo { padding: 0 14px 14px; }
 .board .cnt{margin-left:auto;color:var(--muted);font-size:13px}
 .board .of{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line,rgba(127,127,127,.18));align-items:center}
 .board .of .nums{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:2px}
+#side .sbox{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;background:var(--panel)}
+#side h3{margin:0 0 8px;font:600 13px var(--display);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+#side .sdtxt{font-size:13.5px}
+#side .ri{padding:6px 0;border-top:1px solid var(--line)}
+#side .ri:first-child{border-top:0;padding-top:0}
+#side .ri .m{color:var(--muted);font:12px var(--mono)}
+@media (min-width:1280px){
+  .wrap{max-width:1480px;display:grid;grid-template-columns:minmax(0,1fr) 380px;column-gap:28px}
+  .wrap > *{grid-column:1}
+  .wrap > #side{grid-column:2;grid-row:1 / span 60;align-self:start;position:sticky;top:72px;max-height:calc(100vh - 90px);overflow:auto}
+  .topbar .in{max-width:1480px}
+}
 </style>
 
 <div id="lock" hidden><form id="lockf">
@@ -352,6 +364,12 @@ details.pw .duo { padding: 0 14px 14px; }
     <div id="modelNote"></div>
     <div><b>Return dates</b> are read from the latest news and are estimates.</div>
   </div>
+  <aside id="side">
+    <div class="sbox"><h3>This week</h3><div id="sdWeek" class="sdtxt">–</div></div>
+    <div class="sbox"><h3>Your recent rejected offers</h3><div id="sdRej" class="sdtxt">–</div></div>
+    <div class="sbox"><h3>Hot &amp; cold on your team</h3><div id="sdForm" class="sdtxt">–</div></div>
+    <div class="sbox"><h3>Most likely offers on the board</h3><div id="sdBest" class="sdtxt">–</div></div>
+  </aside>
 </div>
 
 <dialog id="pd"><button class="close" aria-label="Close" onclick="this.closest('dialog').close()">×</button><div id="pdBody"></div></dialog>
@@ -464,6 +482,7 @@ details.pw .duo { padding: 0 14px 14px; }
     const SG = d.suggest || {}, sgl = SG.list || [], sgs = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10);
     const pk = (t) => [...t.give].sort().join(",") + ">" + [...t.get].sort().join(",");
     try { const B = d.board || [], sn = (p) => esc(N(p)), s2 = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10); document.getElementById("board").innerHTML = B.length ? B.map((b) => `<details><summary><span class="rk">#${b.rank}</span><b>${esc(b.name)}</b>${b.team ? `<span class="pos">${esc(b.team)}</span>` : ""}${b.inj ? `<span class="tg">${esc(b.inj)}</span>` : ""}${b.form ? `<span class="tg">${b.form}</span>` : ""}<span class="cnt">${b.offers.length ? b.offers.length + " offer" + (b.offers.length > 1 ? "s" : "") : "no fair offer"}</span></summary>${b.offers.length ? b.offers.map((o, i) => `<div class="of"><div>Send ${o.give.map(sn).join(" + ")} → get ${o.get.map(sn).join(" + ")}<div class="nums">playoffs ${s2(o.po)}/wk · this week ${s2(o.now)} · ${o.pAcc}% chance</div></div><div>${pendKey.has(pk(o)) ? '<span class="msg">Offer out</span>' : `<button class="act go" data-act="send" data-give="${o.give.join(",")}" data-get="${o.get.join(",")}" data-label="${esc(b.name)} ${i + 1}">Send</button>`}</div></div>`).join("") : '<div class="of"><div class="nums">No fair offer with a 15%+ chance right now.</div></div>'}</details>`).join("") : '<p class="empty">No targets yet.</p>'; } catch (e) {}
+    try { const sn = (p) => esc(N(p)), s2 = (v) => (v == null ? "–" : (v >= 0 ? "+" : "") + Math.round(v * 10) / 10), mp = d.matchProj; document.getElementById("sdWeek").innerHTML = mp ? `Projected <b>${mp.me}</b> vs <b>${mp.opp}</b><div class="m" style="color:var(--muted)">${mp.pLose}% chance you lose the week</div>` : "–"; const RJ = d.rejected || []; document.getElementById("sdRej").innerHTML = RJ.length ? RJ.map((r) => `<div class="ri">${esc(r.team)}: ${(r.gn || r.give).map(esc).join(" + ")} → ${(r.rn || r.get).map(esc).join(" + ")}<div class="m">${new Date(r.when).toLocaleDateString([], { month: "short", day: "numeric" })}</div></div>`).join("") : "None in the last 2 weeks."; const fm = (p) => { const x = P[p] || {}, base = x.lastAvg != null ? ((x.avg || 0) + x.lastAvg) / 2 : x.avg || 0, r = (x.recent || []).slice(-5); if (r.length < 3 || !base) return null; const r5 = r.reduce((a, b) => a + b, 0) / r.length; return base >= 24 && r5 <= 0.82 * base ? ["cold", r5, base] : r5 >= 24 && r5 >= 1.18 * base ? ["hot", r5, base] : null; }; const HC = (d.roster || []).map((p) => [p, fm(p)]).filter((x) => x[1]); document.getElementById("sdForm").innerHTML = HC.length ? HC.map(([p, f]) => `<div class="ri"><b>${sn(p)}</b> is ${f[0]}<div class="m">last 5: ${f[1].toFixed(1)} · usual ${f[2].toFixed(1)}</div></div>`).join("") : "Nobody unusually hot or cold."; const all = (d.board || []).flatMap((b) => b.offers.map((o) => ({ ...o, tn: b.name }))).sort((a, b) => b.pAcc * (b.po + 1) - a.pAcc * (a.po + 1)); const seen = new Set(), top = []; for (const o of all) { const k = o.give.join() + ">" + o.get.join(); if (seen.has(k)) continue; seen.add(k); top.push(o); if (top.length >= 5) break; } document.getElementById("sdBest").innerHTML = top.length ? top.map((o) => `<div class="ri">${o.give.map(sn).join(" + ")} → ${o.get.map(sn).join(" + ")}<div class="m">playoffs ${s2(o.po)}/wk · ${o.pAcc}%</div></div>`).join("") : "–"; } catch (e) {}
     try { const SO = d.starOffers || [], sn = (p) => esc(N(p)); document.getElementById("stars").innerHTML = SO.length ? SO.map((o) => { const t = o.trade; return `<tr><td>${sn(o.target)} <span class="pos">#${o.rank}</span></td>${t ? `<td>${esc(t.team)}</td><td>${t.give.map(sn).join(" + ")}${t.get.length > 1 ? ` <span class="pos">(also get ${t.get.filter((x) => x !== o.target).map(sn).join(", ")})</span>` : ""}</td><td class="num">${sgs(t.po)}</td><td class="num">${sgs(t.now)}</td><td class="num">${t.pAcc ?? "?"}%</td>` : `<td colspan="5" class="pos">No trade that keeps your lineup even or better right now</td>`}</tr>`; }).join("") : '<tr><td colspan="6" class="empty">No targets yet.</td></tr>'; } catch (e) {}
     document.getElementById("suggest").innerHTML = SG.err ? `<p class="empty">Couldn't build suggestions: ${esc(SG.err)}</p>` : !sgl.length ? '<p class="empty">No small winning trades right now. Check again after the next refresh.</p>' : sgl.map((s, n) => `<article class="card ${n === 0 ? "top" : ""}">
       <div class="cardhead"><div class="with"><span class="num-badge">${n + 1}</span>${esc(s.team)} <span>· ${s.give.length}-for-${s.get.length} · ${esc(s.odds)} (~${s.pAcc ?? "?"}% to be accepted)</span></div><div class="gain">${sgs(s.po ?? s.poDelta)}<small>effective pts/week in the playoffs (fit in your lineup)</small>${s.raw != null ? `<small>straight-up: ${sgs(s.raw)} fpts/week (players' values compared directly)</small>` : ""}</div></div>
